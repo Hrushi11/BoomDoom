@@ -6,7 +6,8 @@ name: deploy
 on:
   push:
     branches: [main]
-    paths: ["backend/**", "vendor/stickman-studio/**", "deploy/poc/**", ".github/workflows/deploy.yml"]
+    # Everything that goes into the image, including config/ (served by /v1/config) and the build-context filter.
+    paths: ["backend/**", "vendor/stickman-studio/**", "deploy/poc/**", "config/**", ".dockerignore", ".github/workflows/deploy.yml"]
   workflow_dispatch:
 
 concurrency:
