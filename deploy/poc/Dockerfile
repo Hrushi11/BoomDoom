@@ -1,8 +1,6 @@
 # BoomDoom POC image: API, workers and the Stickman Studio renderer in one image.
-# Built ON the EC2 host from a release archive (see deploy.py) — no local Docker or registry needed.
-# Build context layout (the release archive):
-#   backend/    BoomDoom backend
-#   stickman/   Stickman Studio fork (boomdoom branch, without .venv/models)
+# Built by GitHub Actions (.github/workflows/deploy.yml) from the repo root and pushed to ghcr.io.
+#   docker build -f deploy/poc/Dockerfile .
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-liberation fonts-noto-core curl \
@@ -17,7 +15,7 @@ RUN python -m venv .venv && .venv/bin/pip install --no-cache-dir \
 RUN mkdir -p models/kokoro && cd models/kokoro \
     && curl -fsSL --retry 3 -O https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx \
     && curl -fsSL --retry 3 -O https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
-COPY stickman/ /opt/stickman/
+COPY vendor/stickman-studio/ /opt/stickman/
 
 # ---- BoomDoom backend ----
 WORKDIR /srv

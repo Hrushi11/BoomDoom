@@ -32,6 +32,19 @@ variable "openai_daily_cost_cap_usd" {
 
 variable "renderer" {
   type        = string
-  description = "placeholder (ffmpeg only) or stickman (requires the fork baked into the image)."
-  default     = "placeholder"
+  description = "stickman (Stickman Studio, in the image) or placeholder (ffmpeg only)."
+  default     = "stickman"
+}
+
+variable "github_owner" {
+  type        = string
+  description = "GitHub user/org that owns the repo; the image is ghcr.io/<owner>/boomdoom-backend."
+  default     = "Hrushi11"
+}
+
+variable "ghcr_token" {
+  type        = string
+  sensitive   = true
+  description = "Classic GitHub token with read:packages (host pulls the private image). Set it, then re-apply."
+  default     = "unset"
 }

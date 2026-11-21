@@ -11,7 +11,7 @@ data "aws_vpc" "default" {
 locals {
   name     = "boomdoom-poc"
   api_host = var.domain_name != "" ? var.domain_name : "${replace(aws_eip.api.public_ip, ".", "-")}.sslip.io"
-  image    = "${aws_ecr_repository.backend.repository_url}:latest"
+  image    = lower("ghcr.io/${var.github_owner}/boomdoom-backend:latest")
 }
 
 # ---------------------------------------------------------------- storage (lesson videos)
@@ -36,26 +36,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "lessons" {
   }
 }
 
-# ---------------------------------------------------------------- image registry
-
-resource "aws_ecr_repository" "backend" {
-  name                 = "${local.name}-backend"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-  image_scanning_configuration { scan_on_push = true }
-}
-
-resource "aws_ecr_lifecycle_policy" "backend" {
-  repository = aws_ecr_repository.backend.name
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1, description = "keep last 5 images"
-      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = 5 }
-      action       = { type = "expire" }
-    }]
-  })
-}
-
 # ---------------------------------------------------------------- secrets -> one SecureString .env
 
 resource "tls_private_key" "jwt" {
@@ -66,6 +46,14 @@ resource "tls_private_key" "jwt" {
 resource "random_password" "postgres" {
   length  = 32
   special = false
+}
+
+# Classic GitHub token with read:packages, so the host can pull the private image from ghcr.io.
+resource "aws_ssm_parameter" "ghcr_token" {
+  name  = "/${local.name}/ghcr-token"
+  type  = "SecureString"
+  tier  = "Standard"
+  value = var.ghcr_token
 }
 
 resource "aws_ssm_parameter" "env" {
@@ -110,10 +98,7 @@ resource "aws_iam_role_policy" "host" {
       { Effect = "Allow", Action = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject", "s3:DeleteObjectVersion"],
       Resource = "${aws_s3_bucket.lessons.arn}/*" },
       { Effect = "Allow", Action = ["s3:ListBucket", "s3:ListBucketVersions"], Resource = aws_s3_bucket.lessons.arn },
-      { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = aws_ssm_parameter.env.arn },
-      { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
-      { Effect = "Allow", Action = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"],
-      Resource = aws_ecr_repository.backend.arn },
+      { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [aws_ssm_parameter.env.arn, aws_ssm_parameter.ghcr_token.arn] },
       { Effect = "Allow", Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"],
       Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.me.account_id}:log-group:/boomdoom/*" },
     ]
@@ -180,7 +165,8 @@ resource "aws_instance" "host" {
     region      = var.region
     env_param   = aws_ssm_parameter.env.name
     image       = local.image
-    registry    = split("/", aws_ecr_repository.backend.repository_url)[0]
+    github_user = var.github_owner
+    ghcr_param  = aws_ssm_parameter.ghcr_token.name
     api_host    = local.api_host
     compose_b64 = filebase64("${path.module}/../../deploy/poc/docker-compose.yml")
     boot_b64    = filebase64("${path.module}/../../deploy/poc/boot.sh")

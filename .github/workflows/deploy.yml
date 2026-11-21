@@ -1,0 +1,79 @@
+# Build the backend image (API + workers + Stickman Studio) and publish it to GitHub Container Registry.
+# The POC host (infra/poc) pulls :latest every 2 minutes, so a push to main deploys itself —
+# GitHub never needs AWS credentials.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", "vendor/stickman-studio/**", "deploy/poc/**", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/boomdoom-backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: boomdoom, POSTGRES_PASSWORD: boomdoom, POSTGRES_DB: boomdoom_test }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@localhost:5432/boomdoom_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: pytest -q
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image name (registry paths must be lowercase)
+        run: echo "IMAGE=${IMAGE,,}" >> "$GITHUB_ENV"
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/poc/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test — render a real lesson with Stickman Studio inside the image
+        run: |
+          mkdir -p /tmp/smoke && chmod 777 /tmp/smoke
+          cat > /tmp/smoke/params.json <<'EOF'
+          {"topic": "Smoke test", "script": "Ever noticed you cannot stop thinking about an unfinished task? Your brain keeps it open like a browser tab. Finish it, and the tab closes.", "script_mode": "use_as_is", "duration": 12, "voice_id": "af_heart", "format": "9:16", "cis_visual_style": "B1", "cis_accent_color": "#2F6F5E", "cis_illustration_mode": "pil"}
+          EOF
+          docker run --rm -v /tmp/smoke:/smoke -w /opt/stickman "$IMAGE:${{ github.sha }}" \
+            /opt/stickman/.venv/bin/python boomdoom_entry.py --params /smoke/params.json --out /smoke/out | tee /tmp/smoke/result.json
+          grep -q '"video"' /tmp/smoke/result.json
+      - name: Push
+        run: |
+          docker tag "$IMAGE:${{ github.sha }}" "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"

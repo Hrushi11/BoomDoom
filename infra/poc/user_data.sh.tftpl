@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First boot: install Docker + Compose, write the stack, start it.
+# First boot: install Docker + Compose, write the stack, start it, and keep it on the newest image.
 set -euxo pipefail
 dnf install -y docker
 mkdir -p /usr/local/lib/docker/cli-plugins
@@ -12,29 +12,38 @@ mkdir -p /opt/boomdoom/pgdata /opt/boomdoom/caddy
 cat > /opt/boomdoom/host.env <<HOSTENV
 AWS_REGION=${region}
 ENV_PARAM=${env_param}
+GHCR_PARAM=${ghcr_param}
+GHCR_USER=${github_user}
 BOOMDOOM_IMAGE=${image}
-ECR_REGISTRY=${registry}
 API_HOST=${api_host}
 HOSTENV
 echo "${compose_b64}" | base64 -d > /opt/boomdoom/docker-compose.yml
 echo "${boot_b64}" | base64 -d > /opt/boomdoom/boot.sh
 
-# Start on every boot. The first run may fail until an image has been pushed (deploy.sh retries).
+# boot.sh is idempotent: fetch secrets, pull the image, (re)create only what changed.
 cat > /etc/systemd/system/boomdoom.service <<UNIT
 [Unit]
-Description=BoomDoom POC stack
+Description=BoomDoom POC stack (pull + up)
 After=docker.service network-online.target
 Requires=docker.service
 
 [Service]
 Type=oneshot
-RemainAfterExit=yes
 ExecStart=/bin/bash /opt/boomdoom/boot.sh
-ExecStop=/usr/bin/docker compose -f /opt/boomdoom/docker-compose.yml down
+UNIT
+
+# Continuous deployment: GitHub Actions pushes :latest, this picks it up within ~2 minutes.
+cat > /etc/systemd/system/boomdoom.timer <<UNIT
+[Unit]
+Description=Pull and apply the newest BoomDoom image
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=2min
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=timers.target
 UNIT
+
 systemctl daemon-reload
-systemctl enable boomdoom.service
-systemctl start boomdoom.service || true
+systemctl enable --now boomdoom.timer

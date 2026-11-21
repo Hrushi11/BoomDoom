@@ -1,0 +1,12 @@
+# Build context = repo root; only backend/ and vendor/stickman-studio/ are needed.
+**
+!backend/pyproject.toml
+!backend/app/**
+!backend/workers/**
+!backend/alembic/**
+!backend/alembic.ini
+!vendor/stickman-studio/**
+**/__pycache__
+**/*.pyc
+vendor/stickman-studio/.venv
+vendor/stickman-studio/models

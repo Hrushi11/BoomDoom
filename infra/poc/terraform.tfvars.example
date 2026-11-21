@@ -1,5 +1,7 @@
 # cp terraform.tfvars.example terraform.tfvars   (terraform.tfvars is git-ignored)
-region         = "ap-south-1"
+region         = "us-west-2"
 instance_type  = "c7i.xlarge"
 openai_api_key = "sk-..."
+github_owner   = "Hrushi11"
+ghcr_token     = "ghp_..."   # classic token, scope: read:packages
 # domain_name  = "api.boomdoom.app"   # optional; default <eip>.sslip.io

@@ -1,5 +1,5 @@
 # BoomDoom POC: everything on one EC2 host (Product Spec §7.2 "hackathon version").
-# Images come from ECR; secrets come from /opt/boomdoom/.env (written from SSM at boot).
+# Image: ghcr.io/<owner>/boomdoom-backend:latest (built by GitHub Actions). Secrets: /opt/boomdoom/.env from SSM.
 x-app: &app
   image: ${BOOMDOOM_IMAGE}
   env_file: .env

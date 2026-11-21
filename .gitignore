@@ -49,6 +49,8 @@ captures/
 !gradle/wrapper/gradle-wrapper.jar
 
 # ML artefacts (large, not committed)
+vendor/stickman-studio/models/
+vendor/stickman-studio/output/
 ml/data/
 ml/out/
 *.onnx

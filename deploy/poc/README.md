@@ -1,72 +1,71 @@
-# Deploy the POC on AWS
-
-One EC2 instance runs everything with Docker Compose. Caddy serves HTTPS with a Let's Encrypt certificate.
-Lesson videos are stored in a private S3 bucket and served with presigned URLs.
+# Deploy the POC on AWS (via GitHub)
 
 ```
-Android app --HTTPS--> Caddy --> api ----------\
-                                 script-worker --+--> Postgres (on the instance, EBS-backed)
-                                 render-worker --/
-                                 scheduler
-                 lessons <---- S3 (private) <---- render-worker
+git push main ──► GitHub Actions: tests ─► docker build ─► smoke render (Stickman) ─► ghcr.io/<owner>/boomdoom-backend:latest
+                                                                                              │ pulled every 2 min
+Android app ──HTTPS──► EC2 (Docker Compose): Caddy ─► api · script-worker · render-worker · scheduler · Postgres
+                                                                         │
+                                                          S3 (private lesson videos, presigned URLs)
 ```
+
+GitHub never needs AWS credentials. The host polls ghcr.io and runs `docker compose up -d`, which restarts only
+what changed. That also makes this work with short-lived AWS Workshop credentials.
 
 | Resource | Notes |
 |---|---|
 | EC2 `c7i.xlarge` (4 vCPU / 8 GB), Amazon Linux 2023 | IMDSv2; no SSH (use SSM Session Manager) |
-| Elastic IP | API at `https://<ip-with-dashes>.sslip.io` unless `domain_name` is set |
+| Elastic IP | API at `https://<ip-with-dashes>.sslip.io` (Let's Encrypt via Caddy) unless `domain_name` is set |
 | S3 bucket | Private, encrypted; lessons under `lessons/{id}/v{n}/` |
-| ECR repository | Backend image (keeps the last 5) |
-| SSM SecureString `/boomdoom-poc/env` | Runtime `.env`: OpenAI key, generated JWT keys, generated DB password |
+| SSM SecureString `/boomdoom-poc/env` | Runtime `.env`: OpenAI key, generated JWT keys, DB password, `RENDERER=stickman` |
+| SSM SecureString `/boomdoom-poc/ghcr-token` | GitHub token the host uses to pull the private image |
 | CloudWatch Logs `/boomdoom/poc` | Container logs (JSON) and metrics (Embedded Metric Format) |
 
-Rough cost: ~$0.18/h for the instance in ap-south-1, plus small S3/ECR charges and OpenAI at about $0.01 per lesson.
+Rough cost: ~$0.18/h for the instance, plus small S3 charges and OpenAI at about $0.008 per lesson.
 
-## Prerequisites
+## One-time setup
 
-Install the AWS CLI (logged in to the target account), Terraform ≥ 1.6, and Docker.
+1. **GitHub token for the host.** Create a *classic* token with only the `read:packages` scope (GitHub → Settings →
+   Developer settings → Personal access tokens → Tokens (classic)).
+2. **Infrastructure** (needs Terraform ≥ 1.6 and AWS credentials in the environment):
 
-## First deploy
+   ```bash
+   cd infra/poc
+   cp terraform.tfvars.example terraform.tfvars   # openai_api_key, ghcr_token, region
+   terraform init && terraform apply
+   ```
 
-```bash
-cd infra/poc
-cp terraform.tfvars.example terraform.tfvars      # set openai_api_key
-terraform init && terraform apply                 # ~3 min
-cd ../.. && deploy/poc/deploy.sh                  # build + push image, start the stack
-curl https://$(terraform -chdir=infra/poc output -raw api_host)/readyz
-```
+3. **First image:** push to `main` (or run the *deploy* workflow by hand). The workflow runs the tests, builds the
+   image, renders a real lesson inside it as a smoke test, then pushes. Within ~2 minutes the host pulls the image,
+   runs the migrations and starts serving:
 
-The first HTTPS request can take a few seconds while Caddy gets the certificate. Point the app at the
-`api_url` output (Android: `API_BASE_URL` in `core/network/build.gradle.kts`).
+   ```bash
+   curl https://$(terraform -chdir=infra/poc output -raw api_host)/readyz
+   ```
+
+4. **App:** set `boomdoom.apiBaseUrl=https://<api_host>/` in `android/local.properties` and rebuild.
 
 ## Every later deploy
 
-```bash
-deploy/poc/deploy.sh
-```
-
-This builds the image, pushes it, copies the compose file to the instance, then pulls and restarts the stack
-through SSM. Migrations run automatically (the `migrate` service runs before the app starts).
-
-## Operate
+`git push` to `main`. To see what the host is doing:
 
 ```bash
 aws ssm start-session --target $(terraform -chdir=infra/poc output -raw instance_id)
+sudo journalctl -u boomdoom.service -n 30          # pull/up log (runs every 2 min)
 sudo docker compose -f /opt/boomdoom/docker-compose.yml ps
 sudo docker compose -f /opt/boomdoom/docker-compose.yml logs -f render-worker
 ```
 
-To change a secret, edit the SSM parameter (or the Terraform variable plus `terraform apply`), then run `deploy.sh`.
+Changing a secret: update `terraform.tfvars` and run `terraform apply`. The host reads the new value on its next
+2-minute run (restart the stack to apply it to running containers).
 
 ## Tear down
 
 ```bash
-terraform -chdir=infra/poc destroy     # deletes the instance, the database volume, the bucket and the images
+terraform -chdir=infra/poc destroy   # instance, database volume, bucket, parameters
 ```
 
-## Security notes
+## Notes
 
-- Terraform state contains the generated secrets (JWT key, DB password) and the OpenAI key. Keep it local or in
-  an encrypted, access-controlled bucket. `*.tfstate` and `terraform.tfvars` are git-ignored.
-- Only ports 80/443 are open; there is no SSH.
-- The S3 bucket blocks all public access; clients get time-limited presigned URLs.
+- Terraform state (local, git-ignored) contains the generated secrets and the tokens. Keep it private.
+- Only ports 80/443 are open. There is no SSH.
+- The image is private on ghcr.io. The token on the host can only read packages.
