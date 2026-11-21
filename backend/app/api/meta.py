@@ -6,10 +6,9 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from app.errors import ApiError
-
 from app import auth, db
 from app.config import get_settings
+from app.errors import ApiError
 
 router = APIRouter(tags=["meta"])
 log = logging.getLogger(__name__)
