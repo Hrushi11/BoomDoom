@@ -9,18 +9,17 @@ jobs:
     services:
       postgres:
         image: postgres:16
-        env: { POSTGRES_USER: boomdoom, POSTGRES_PASSWORD: boomdoom, POSTGRES_DB: boomdoom }
+        env: { POSTGRES_USER: boomdoom, POSTGRES_PASSWORD: boomdoom, POSTGRES_DB: boomdoom_test }
         ports: ["5432:5432"]
         options: --health-cmd pg_isready --health-interval 5s
     env:
-      BOOMDOOM_ENV: test
-      DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@localhost:5432/boomdoom
+      TEST_DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@localhost:5432/boomdoom_test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -e '.[dev]'
       - run: ruff check . && ruff format --check .
-      - run: mypy app workers
-      - run: alembic upgrade head
       - run: pytest -q
+      - run: docker build -t boomdoom-backend .

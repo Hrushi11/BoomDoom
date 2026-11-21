@@ -22,12 +22,12 @@ android/        Kotlin + Jetpack Compose app (Tech Spec §3)
   ml/             vision (SigLIP 2) · text (EmbeddingGemma + OCR) · speech · fusion · llm (LFM2-VL)
   feature/        onboarding · home · learn · insights · settings
   build-logic/    Gradle convention plugins
-backend/        FastAPI API + script worker (OpenAI) + render worker (Stickman Studio) (§8)
+backend/        FastAPI API + script worker (OpenAI) + render worker (Stickman Studio) (§8) — see backend/README.md
 config/         Remote-config defaults: selectors, ML thresholds, models manifest, feature flags (App. C)
 ml/             Offline, team-only ML tooling (§9.6)
-infra/          Terraform modules + demo/dev/prod envs (§9.4)
-deploy/demo/    Docker Compose for the hackathon `demo` env (§9.1)
-.github/        CI: backend, android, infra (§9.5)
+infra/poc/      Terraform for the AWS POC: one EC2 host, S3, ECR, SSM secrets
+deploy/poc/     Docker Compose stack + deploy script for that host — see deploy/poc/README.md
+.github/        CI: backend, android
 ```
 
 ## Backend
@@ -39,7 +39,7 @@ cp .env.example .env
 pytest -q                          # unit + API tests (no DB needed)
 ruff check . && ruff format --check .
 
-# With Postgres running (e.g. `docker compose -f deploy/demo/docker-compose.yml up db`):
+# With a local Postgres:
 alembic upgrade head
 uvicorn app.main:app --reload      # http://localhost:8000/docs
 ```
@@ -63,9 +63,11 @@ The debug build points at `http://10.0.2.2:8000/` (the host machine from the emu
 
 | Spec | Scaffold | Why |
 |---|---|---|
-| Python 3.12 (§2.2) | venv on 3.11; code targets ≥ 3.11; CI uses 3.12 | 3.12 isn't installed on this machine |
+| Python 3.12 (§2.2) | venv on 3.11; code targets ≥ 3.11; CI and the Docker image use 3.12 | 3.12 isn't installed on this machine |
+| ECS + RDS + SQS + CloudFront (§9) | POC: one EC2 host (Compose), Postgres-backed queue, S3 presigned URLs | POC scope. The code still supports SQS (`QUEUE_BACKEND=sqs`) and CloudFront signing |
+| EventBridge → scheduler endpoints (§8.1) | `python -m app.cron loop` on the host | Single host; no public internal endpoints |
+| `job`, `user_lesson`, `syllabus` tables (§8.4) | `job.topic_id`, `user_lesson.topic_id/assigned_at`, `syllabus.status`, plus `queue_message` and `daily_cost` tables | Jobs and lessons need topic links; shared syllabi need a build status; the DB queue and the OpenAI cost cap need storage |
 | `:core:data` includes the network client (§3.1) | split into `:core:data` (local) and `:core:network` | Makes the feed-isolation rule (§3.2) a module-level check instead of a class-level one |
-| `job` table (§8.4) | extra `topic_id` column | Script jobs need to find their topic before a lesson/syllabus row exists |
 | Proto DataStore (§6.1) | Preferences DataStore behind `SettingsRepository` | Simpler setup; can be swapped without touching callers |
 | Firebase (FCM, Crashlytics) | not wired yet | Needs `google-services.json` |
 
@@ -73,4 +75,6 @@ The debug build points at `http://10.0.2.2:8000/` (the host machine from the emu
 
 Implemented and unit-tested: SessionEngine (check-ins, back-off, snooze, budget card, pause/timeout), reel-transition debounce, day key with the 4 AM reset, signal fusion and thresholds, lesson sharing/stock rules, lesson lifecycle, script validation (Appendix A), pause-time extraction, the API v1 surface, and the privacy check that rejects feed data.
 
-Stubbed with `TODO(owner)` markers (owners follow the §14.1 team split, A–D): accessibility selectors (spike S1), MediaProjection frame sampling, audio capture, ML runtimes, overlay cards, lesson player, SQS worker loops, the Stickman Studio integration, CloudFront signing, and Terraform modules.
+**Backend: complete for the POC.** Everything in §8 is implemented: the API, the lesson pipeline (syllabus → script → QA → render → feed), sharing, refill, retries, account deletion, rate limits, the OpenAI cost cap, push notifications, and AWS deployment. Real stickman rendering needs the Stickman Studio fork (see backend/README.md).
+
+**Android:** stubbed with `TODO(owner)` markers (owners follow the §14.1 team split, A–D): accessibility selectors (spike S1), MediaProjection frame sampling, audio capture, ML runtimes, overlay cards, and the lesson player.

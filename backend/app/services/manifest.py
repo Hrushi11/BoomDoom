@@ -1,25 +1,53 @@
-"""Builds the client-facing lesson manifest (Tech Spec §7.1) with signed CDN URLs."""
+"""Lesson manifest (Tech Spec §7.1): built by the render worker, signed per request by the API."""
 
-from datetime import UTC, datetime, timedelta
+from __future__ import annotations
 
-from app.config import get_settings
-from app.models import Lesson
-
-SIGNED_URL_TTL = timedelta(hours=24)
+from app.cdn import sign_url
+from app.models import Lesson, Topic
 
 
-def sign_url(key: str) -> str:
-    """CloudFront signed URL in AWS; plain URL locally. TODO: CloudFront key-group signing (§9.2)."""
-    base = get_settings().cdn_base_url.rstrip("/")
-    expires = int((datetime.now(UTC) + SIGNED_URL_TTL).timestamp())
-    return f"{base}/{key}?Expires={expires}"
+def build_manifest(
+    lesson: Lesson, script: dict, seg_ends: dict[str, float], pauses: list[dict], duration_s: float, version: int
+) -> dict:
+    """Stored on the lesson row and in S3. Contains no per-user data and no URLs (signed at read time)."""
+    return {
+        "lesson_id": str(lesson.id),
+        "concept": lesson.concept,
+        "format": script["format"],
+        "level": lesson.level,
+        "language": lesson.language,
+        "duration_s": round(duration_s, 2),
+        "segments": [{"id": s["id"], "end_s": seg_ends[s["id"]]} for s in script["segments"]],
+        "interactions": [
+            {
+                k: i[k]
+                for k in (
+                    "id",
+                    "after_segment",
+                    "pause_at_s",
+                    "type",
+                    "question",
+                    "options",
+                    "answer_index",
+                    "feedback_correct",
+                    "feedback_wrong",
+                )
+            }
+            for i in pauses
+        ],
+        "recap": script["recap"],
+        "go_deeper": script["go_deeper"],
+        "disclaimer": script["disclaimer"],
+        "version": version,
+    }
 
 
-def signed_manifest(lesson: Lesson) -> dict:
-    manifest = dict(lesson.manifest or {})
-    manifest["lesson_id"] = str(lesson.id)
+def signed_manifest(lesson: Lesson, topic: Topic | None) -> dict:
+    m = dict(lesson.manifest or {})
+    m["lesson_id"] = str(lesson.id)
+    m["topic"] = {"id": str(topic.id), "name": topic.name} if topic else None
     if lesson.video_key:
-        manifest["video_url"] = sign_url(lesson.video_key)
+        m["video_url"] = sign_url(lesson.video_key)
     if lesson.thumb_key:
-        manifest["thumb_url"] = sign_url(lesson.thumb_key)
-    return manifest
+        m["thumb_url"] = sign_url(lesson.thumb_key)
+    return m

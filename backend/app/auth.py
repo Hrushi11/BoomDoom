@@ -1,6 +1,7 @@
 """Anonymous auth (Tech Spec §8.2): RS256 access JWTs + opaque rotated refresh tokens."""
 
 import hashlib
+import json
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -43,7 +44,7 @@ def issue_access_token(user_id: uuid.UUID) -> str:
         "iat": now,
         "exp": now + timedelta(seconds=get_settings().access_token_ttl_s),
     }
-    return jwt.encode(claims, _keys()[0], algorithm="RS256")
+    return jwt.encode(claims, _keys()[0], algorithm="RS256", headers={"kid": get_settings().jwt_key_id})
 
 
 def new_refresh_token() -> tuple[str, str]:
@@ -58,7 +59,7 @@ def hash_token(token: str) -> str:
 
 def decode_access_token(token: str) -> uuid.UUID:
     try:
-        claims = jwt.decode(token, _keys()[1], algorithms=["RS256"], issuer=ISSUER)
+        claims = jwt.decode(token, _keys()[1], algorithms=["RS256"], issuer=ISSUER, options={"require": ["exp", "sub"]})
     except jwt.PyJWTError as e:
         raise ApiError(401, "unauthorized", "Invalid or expired token") from e
     if claims.get("scope") != "user":
@@ -75,3 +76,43 @@ def current_user_id(creds: HTTPAuthorizationCredentials | None = Depends(_bearer
 def require_self(path_user_id: uuid.UUID, user_id: uuid.UUID) -> None:
     if path_user_id != user_id:
         raise ApiError(403, "forbidden", "Cannot act on another user")
+
+
+def jwks() -> dict:
+    """Public key set (Tech Spec §8.2) so other services can verify our tokens."""
+    from jwt.algorithms import RSAAlgorithm
+
+    pub = serialization.load_pem_public_key(_keys()[1])
+    jwk = json.loads(RSAAlgorithm.to_jwk(pub))
+    jwk.update({"kid": get_settings().jwt_key_id, "use": "sig", "alg": "RS256"})
+    return {"keys": [jwk]}
+
+
+@lru_cache
+def _cognito_jwks_client() -> jwt.PyJWKClient:
+    s = get_settings()
+    url = f"https://cognito-idp.{s.aws_region}.amazonaws.com/{s.cognito_user_pool_id}/.well-known/jwks.json"
+    return jwt.PyJWKClient(url, cache_keys=True, lifespan=3600)
+
+
+def verify_cognito_id_token(token: str) -> tuple[str, str]:
+    """Returns (provider, subject) for a Cognito ID token. Optional login is P1."""
+    s = get_settings()
+    if not (s.cognito_user_pool_id and s.cognito_app_client_id):
+        raise ApiError(501, "login_disabled", "Optional login is not enabled")
+    try:
+        key = _cognito_jwks_client().get_signing_key_from_jwt(token).key
+        claims = jwt.decode(
+            token,
+            key,
+            algorithms=["RS256"],
+            audience=s.cognito_app_client_id,
+            issuer=f"https://cognito-idp.{s.aws_region}.amazonaws.com/{s.cognito_user_pool_id}",
+        )
+    except jwt.PyJWTError as e:
+        raise ApiError(401, "invalid_identity", "Could not verify the sign-in token") from e
+    if claims.get("token_use") != "id":
+        raise ApiError(401, "invalid_identity", "Expected an ID token")
+    identities = claims.get("identities") or []
+    provider = identities[0].get("providerName", "cognito").lower() if identities else "phone"
+    return provider, claims["sub"]

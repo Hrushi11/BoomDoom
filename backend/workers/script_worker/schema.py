@@ -113,3 +113,64 @@ def validate_script(script: dict, target_length_s: int) -> list[str]:
     if abs(words - target) > 0.15 * target:
         issues.append(f"narration has {words} words, target {target} ±15%")
     return issues
+
+
+SYLLABUS_SCHEMA: dict = {
+    "name": "syllabus",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["concepts"],
+        "properties": {
+            "concepts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["title", "objective"],
+                    "properties": {"title": {"type": "string"}, "objective": {"type": "string"}},
+                },
+            }
+        },
+    },
+}
+
+QA_SCHEMA: dict = {
+    "name": "quality_check",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["pass", "issues", "fixed_script"],
+        "properties": {
+            "pass": {"type": "boolean"},
+            "issues": {"type": "array", "items": {"type": "string"}},
+            "fixed_script": {"anyOf": [LESSON_SCRIPT_SCHEMA["schema"], {"type": "null"}]},
+        },
+    },
+}
+
+SAFETY_SCHEMA: dict = {
+    "name": "topic_safety",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["allowed", "reason"],
+        "properties": {"allowed": {"type": "boolean"}, "reason": {"type": "string"}},
+    },
+}
+
+
+def validate_syllabus(data: dict, min_concepts: int = 10) -> list[dict]:
+    concepts = [c for c in data.get("concepts", []) if c.get("title", "").strip()]
+    seen, unique = set(), []
+    for c in concepts:
+        key = c["title"].strip().lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append({"title": c["title"].strip(), "objective": c["objective"].strip()})
+    if len(unique) < min_concepts:
+        raise ValueError(f"syllabus too short ({len(unique)} concepts)")
+    return unique[:30]

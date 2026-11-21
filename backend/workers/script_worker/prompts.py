@@ -49,3 +49,13 @@ def qa_prompt(script_json: str) -> str:
         "Return JSON {pass: boolean, issues: [string], fixed_script: <schema or null>}. "
         "Fix only small issues; set fixed_script to null for factual problems."
     )
+
+
+def safety_prompt(topic: str, goal: str | None) -> str:
+    return (
+        "You screen topics for a micro-learning app for Indian Gen Z (16+). Decide whether short educational "
+        "lessons can responsibly be made on this topic. Disallow sexual content, self-harm methods, weapons or "
+        "drug synthesis, hate, harassment of real people, and instructions for illegal activity. Allow sensitive "
+        "but educational subjects (history of wars, mental-health awareness, personal finance).\n"
+        f"Topic: {topic}\nGoal: {goal or 'none'}\nReturn JSON {{allowed: boolean, reason: string}}."
+    )

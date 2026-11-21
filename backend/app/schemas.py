@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Level = Literal["beginner", "intermediate", "advanced"]
 TopicType = Literal["preset", "custom", "suggested"]
@@ -125,6 +125,15 @@ class Event(Strict):
     at: datetime
     data: InteractionAnsweredData | GoDeeperData | None = None
 
+    @model_validator(mode="after")
+    def _data_matches_type(self) -> "Event":
+        expected = {"interaction_answered": InteractionAnsweredData, "go_deeper_chosen": GoDeeperData}.get(self.type)
+        if expected is None and self.data is not None:
+            raise ValueError(f"{self.type} takes no data")
+        if expected is not None and not isinstance(self.data, expected):
+            raise ValueError(f"{self.type} requires {expected.__name__}")
+        return self
+
 
 class EventBatch(Strict):
     events: list[Event] = Field(max_length=50)
@@ -151,3 +160,12 @@ class ErrorBody(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorBody
+
+
+class LinkRequest(Strict):
+    cognito_id_token: str
+
+
+class CognitoSignIn(Strict):
+    cognito_id_token: str
+    install_secret_hash: str = Field(min_length=32, max_length=128)

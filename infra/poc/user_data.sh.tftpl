@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# First boot: install Docker + Compose, write the stack, start it.
+set -euxo pipefail
+dnf install -y docker
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/v2.30.3/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+systemctl enable --now docker
+
+mkdir -p /opt/boomdoom/pgdata /opt/boomdoom/caddy
+cat > /opt/boomdoom/host.env <<HOSTENV
+AWS_REGION=${region}
+ENV_PARAM=${env_param}
+BOOMDOOM_IMAGE=${image}
+ECR_REGISTRY=${registry}
+API_HOST=${api_host}
+HOSTENV
+echo "${compose_b64}" | base64 -d > /opt/boomdoom/docker-compose.yml
+echo "${boot_b64}" | base64 -d > /opt/boomdoom/boot.sh
+
+# Start on every boot. The first run may fail until an image has been pushed (deploy.sh retries).
+cat > /etc/systemd/system/boomdoom.service <<UNIT
+[Unit]
+Description=BoomDoom POC stack
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash /opt/boomdoom/boot.sh
+ExecStop=/usr/bin/docker compose -f /opt/boomdoom/docker-compose.yml down
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable boomdoom.service
+systemctl start boomdoom.service || true

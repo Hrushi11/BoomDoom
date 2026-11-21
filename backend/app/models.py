@@ -100,8 +100,10 @@ class Syllabus(Base):
     language: Mapped[str] = mapped_column(Text, nullable=False)
     goal_hash: Mapped[str | None] = mapped_column(Text)
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("app_user.id", ondelete="CASCADE"))
-    concepts: Mapped[list] = mapped_column(JSONB, nullable=False)
+    concepts: Mapped[list] = mapped_column(JSONB, nullable=False, server_default="[]")
     model: Mapped[str] = mapped_column(Text, nullable=False)
+    # Not in §8.4: lets concurrent users attach to a shared syllabus while it is being built.
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="building")  # building|ready|failed
     created_at: Mapped[datetime] = _now()
 
 
@@ -118,6 +120,14 @@ class Lesson(Base):
     __tablename__ = "lesson"
     __table_args__ = (
         Index("lesson_ready_shared", "share_key", "status", postgresql_where=text("owner_user_id is null")),
+        # One shared lesson per (share_key, concept): concurrent users reuse instead of duplicating.
+        Index(
+            "lesson_shared_concept",
+            "share_key",
+            "concept_index",
+            unique=True,
+            postgresql_where=text("owner_user_id is null"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = _uuid()
@@ -151,7 +161,10 @@ class UserLesson(Base):
     __tablename__ = "user_lesson"
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("app_user.id", ondelete="CASCADE"), primary_key=True)
-    lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lesson.id"), primary_key=True)
+    lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lesson.id", ondelete="CASCADE"), primary_key=True)
+    # Not in §8.4: which of the user's topics this lesson was allocated to (shared lessons have no topic).
+    topic_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("topic.id", ondelete="CASCADE"), index=True)
+    assigned_at: Mapped[datetime] = _now()
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -163,6 +176,7 @@ class UserLesson(Base):
 
 class Job(Base):
     __tablename__ = "job"
+    __table_args__ = (Index("job_status_stage", "status", "stage"),)
 
     id: Mapped[uuid.UUID] = _uuid()
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
@@ -174,14 +188,17 @@ class Job(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _now()
-    updated_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class LessonReport(Base):
     __tablename__ = "lesson_report"
 
     id: Mapped[uuid.UUID] = _uuid()
-    lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lesson.id"))
+    lesson_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lesson.id", ondelete="CASCADE"))
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
@@ -204,3 +221,25 @@ class RateBucket(Base):
     bucket: Mapped[str] = mapped_column(Text, primary_key=True)
     tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     refilled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DailyCost(Base):
+    """OpenAI spend per UTC day, for the daily cost cap (Tech Spec §8.7)."""
+
+    __tablename__ = "daily_cost"
+
+    day: Mapped[str] = mapped_column(Text, primary_key=True)
+    usd: Mapped[float] = mapped_column(Float, nullable=False, server_default="0")
+
+
+class QueueMessage(Base):
+    """Postgres-backed queue used when QUEUE_BACKEND=db (local, tests, single-host demo)."""
+
+    __tablename__ = "queue_message"
+    __table_args__ = (Index("queue_message_ready", "queue", "visible_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    queue: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    visible_at: Mapped[datetime] = _now()
+    receive_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")

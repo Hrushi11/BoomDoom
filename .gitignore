@@ -16,6 +16,9 @@ Thumbs.db
 google-services.json
 **/secrets/
 
+# Local lesson storage / render scratch (STORAGE_BACKEND=local)
+.data/
+
 # Python
 .venv/
 venv/
@@ -58,4 +61,7 @@ ml/out/
 *.tfstate
 *.tfstate.*
 *.tfplan
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl.bak
 crash.log

@@ -16,11 +16,15 @@ dependencies = [
   "openai>=1.55",
   "httpx>=0.28",
   "jsonschema>=4.23",
+  "google-auth>=2.36",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3",
+  "pgserver>=0.1.4",       # embedded PostgreSQL for tests (CI uses a service container instead)
+  "imageio-ffmpeg>=0.5",   # ffmpeg binary for the render-path test
+  "pyyaml>=6.0",
   "ruff>=0.8",
   "mypy>=1.13",
 ]
