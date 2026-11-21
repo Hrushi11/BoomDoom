@@ -319,7 +319,8 @@ fun TopicsScreen(onBack: () -> Unit, vm: TopicsViewModel = hiltViewModel()) {
                     }
                 }
             }
-            PrimaryButton("Add a topic", { adding = true }, Modifier.padding(vertical = 12.dp),
+            // Teal like every other action on the paper (learning) screens; coral is the dark Home accent.
+            LearnButton("Add a topic", { adding = true }, Modifier.fillMaxWidth().padding(vertical = 12.dp),
                 leading = { Icon(Icons.Filled.Add, null) })
         }
         if (adding || editing != null) {

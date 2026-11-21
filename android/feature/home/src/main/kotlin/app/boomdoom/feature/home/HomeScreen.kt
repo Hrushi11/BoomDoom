@@ -71,6 +71,13 @@ import app.boomdoom.core.model.MonitoringStatus
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
 
 /** US-09, US-10 (designs H1–H4). */
 @Composable
@@ -100,14 +107,21 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
             }
             if (t.demo || s.demoMode) DemoBanner()
             SetupBanner(ui.status) { ctx.startActivity(vm.fixIntent(ui.status)) }
-            if (ui.status !is MonitoringStatus.SetupRequired && !s.monitoringPaused && ui.modelsReady && !ui.captureActive) {
-                val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-                    r.data?.let { if (r.resultCode == android.app.Activity.RESULT_OK) vm.startCapture(r.resultCode, it) }
-                }
-                CaptureBanner { consent.launch(vm.captureIntent()) }
+            val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+                r.data?.let { if (r.resultCode == android.app.Activity.RESULT_OK) vm.startCapture(r.resultCode, it) }
             }
-
-            BudgetCard(t.reels, s.budget, ui.next) { ui.next?.let { onOpenLesson(it.id) } ?: onOpenLearn() }
+            // Banner and budget card share one child, and the banner animates its height: toggling Pause/Resume
+            // used to drop or insert ~120 px in a single frame, so everything below jumped (looked like flicker).
+            Column {
+                AnimatedVisibility(
+                    visible = ui.status !is MonitoringStatus.SetupRequired && !s.monitoringPaused && ui.modelsReady && !ui.captureActive,
+                    enter = fadeIn(tween(220, easing = EaseOutExpoLike)) + expandVertically(tween(300, easing = EaseOutExpoLike)),
+                    exit = fadeOut(tween(150, easing = EaseOutExpoLike)) + shrinkVertically(tween(220, easing = EaseOutExpoLike)),
+                ) {
+                    Box(Modifier.padding(bottom = 14.dp)) { CaptureBanner { consent.launch(vm.captureIntent()) } }
+                }
+                BudgetCard(t.reels, s.budget, ui.next) { ui.next?.let { onOpenLesson(it.id) } ?: onOpenLearn() }
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatTile("${t.flagged}", "flagged", { Icon(Icons.Outlined.Flag, null, Modifier.size(18.dp)) },
@@ -179,6 +193,9 @@ private fun SetupBanner(status: MonitoringStatus, onFix: () -> Unit) {
 }
 
 /** US-32: content understanding is off (never enabled, or Android needs consent again after a restart). */
+/** One easing curve for UI motion (unslop tokens: cubic-bezier(0.22, 1, 0.36, 1)). */
+private val EaseOutExpoLike = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
 @Composable
 private fun CaptureBanner(onResume: () -> Unit) {
     BoomCard(Modifier.fillMaxWidth(), color = BoomColors.CardRaised, border = BoomColors.Border) {

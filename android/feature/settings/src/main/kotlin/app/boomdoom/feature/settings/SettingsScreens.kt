@@ -85,6 +85,10 @@ import app.boomdoom.core.designsystem.PaperTheme
 import app.boomdoom.core.designsystem.PillShape
 import app.boomdoom.core.designsystem.SelectChip
 import app.boomdoom.core.model.BuiltInLabel
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.Check
 
 enum class SettingsPage { GOALS, FLAGS, PRIVACY, PERMISSIONS, ABOUT }
 
@@ -132,10 +136,17 @@ private fun ToggleRow(title: String, body: String, checked: Boolean, enabled: Bo
                 Text(body, style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
             }
             Switch(checked, onChange, modifier = Modifier.semantics { contentDescription = title }, enabled = enabled,
-                colors = SwitchDefaults.colors(checkedTrackColor = BoomColors.LearnDeep, checkedThumbColor = Color.White))
+                colors = boomSwitchColors())
         }
     }
 }
+
+/** One switch look for every settings toggle: on = teal, off = clearly off (not faded like a disabled control). */
+@Composable
+private fun boomSwitchColors() = SwitchDefaults.colors(
+    checkedTrackColor = BoomColors.LearnDeep, checkedThumbColor = Color.White, checkedBorderColor = BoomColors.LearnDeep,
+    uncheckedTrackColor = BoomColors.Paper, uncheckedThumbColor = BoomColors.InkSecondary, uncheckedBorderColor = BoomColors.InkSecondary,
+)
 
 // ------------------------------------------------------------------ Y-1 You
 
@@ -150,13 +161,13 @@ fun YouScreen(onOpen: (SettingsPage) -> Unit, onOpenTopics: () -> Unit, vm: Sett
                 Spacer(Modifier.width(14.dp))
                 Column {
                     Text(s?.displayName?.ifBlank { null } ?: "Anonymous", style = MaterialTheme.typography.titleLarge)
-                    Text("on this phone · tap to set your name", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
+                    Text(if (s?.displayName.isNullOrBlank()) "On this phone · tap to set your name" else "On this phone · tap to change", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
                 }
             }
         }
         MenuRow(Icons.Filled.TrackChanges, Color(0xFFE5484D), "Scrolling goals") { onOpen(SettingsPage.GOALS) }
         MenuRow(Icons.Filled.Flag, Color(0xFFFF7A6B), "Content & flags") { onOpen(SettingsPage.FLAGS) }
-        MenuRow(Icons.Filled.MenuBook, BoomColors.LearnDeep, "Learning preferences", onOpenTopics)
+        MenuRow(Icons.Filled.MenuBook, BoomColors.LearnDeep, "My topics", onOpenTopics)
         MenuRow(Icons.Filled.Security, Color(0xFF8A7CE0), "Privacy & data") { onOpen(SettingsPage.PRIVACY) }
         MenuRow(Icons.Filled.Layers, Color(0xFF4A90D9), "Permissions") { onOpen(SettingsPage.PERMISSIONS) }
         MenuRow(Icons.Filled.Info, BoomColors.LearnDeep, "About") { onOpen(SettingsPage.ABOUT) }
@@ -194,7 +205,8 @@ fun GoalsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
             }
             Slider(budget.coerceIn(50, 500).toFloat(), { budget = (it / 10).toInt() * 10 }, valueRange = 50f..500f,
                 onValueChangeFinished = { vm.setGoals(budget = budget) },
-                colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = BoomColors.LearnDeep))
+                colors = SliderDefaults.colors(thumbColor = BoomColors.LearnDeep, activeTrackColor = BoomColors.LearnDeep,
+                    inactiveTrackColor = BoomColors.PaperBorder, activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent))
             Text("Tap the number to type any value.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
         }
         Card {
@@ -293,18 +305,27 @@ fun FlagsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     Page("Content & flags", onBack) {
         Text("Mark what feels like a time-waste. Flagged content gets a small tag on the reel and is highlighted in insights.",
             style = MaterialTheme.typography.bodyMedium, color = BoomColors.InkSecondary)
-        (BuiltInLabel.entries.map { it.key to it.displayName } + st.customLabels.map { it.lowercase() to it }).forEach { (key, name) ->
-            ToggleRow(name, "Not worth my time", key in st.flaggedLabels) { vm.toggleFlag(key) }
+        val labels = BuiltInLabel.entries.map { it.key to it.displayName } + st.customLabels.map { it.lowercase() to it }
+        PermGroup("Flag as not worth my time") {
+            labels.forEachIndexed { i, (key, name) ->
+                if (i > 0) PermDivider()
+                Row(Modifier.fillMaxWidth().clickable(role = Role.Switch) { vm.toggleFlag(key) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Switch(key in st.flaggedLabels, { vm.toggleFlag(key) }, modifier = Modifier.semantics { contentDescription = "Flag $name" },
+                        colors = boomSwitchColors())
+                }
+            }
         }
         Card {
-            Text("Your own categories (${st.customLabels.size}/2)", style = MaterialTheme.typography.titleMedium)
+            Text("Your own categories (${st.customLabels.size}/2)", style = MaterialTheme.typography.titleSmall)
             st.customLabels.forEach { l ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(l, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     TextButton({ vm.setCustomLabels(st.customLabels - l) }) { Text("Remove") }
                 }
             }
-            if (st.customLabels.size < 2) TextButton({ adding = true }) { Text("+ Add your own") }
+            if (st.customLabels.size < 2) TextButton({ adding = true }) { Text("Add your own", color = BoomColors.LearnDeep) }
         }
     }
     if (adding) {
@@ -328,15 +349,22 @@ fun PrivacyScreen(onBack: () -> Unit, onAccountDeleted: () -> Unit, vm: Settings
     Page("Privacy & data", onBack) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             InfoCard(Icons.Filled.Lock, "On this phone", "Reels, labels, insights, audio and transcripts never leave your phone.",
-                Color(0xFFEAF7EE), Modifier.weight(1f))
+                BoomColors.PaperCard, Modifier.weight(1f))
             InfoCard(Icons.Filled.CloudSync, "Sent to BoomDoom", "Only your learning topics and lesson activity.",
                 BoomColors.PaperCard, Modifier.weight(1f))
         }
         ToggleRow("Pause monitoring", "Temporarily stop tracking your reels.", st.monitoringPaused) { vm.setPaused(it) }
-        ToggleRow("Audio understanding", "On-device speech-to-text for talking reels. Coming soon.", false, enabled = false) {}
-        ToggleRow("Topic suggestions from my feed", "Suggest lessons based on what you watch. Coming soon.", false, enabled = false) {}
-        DangerRow(Icons.Filled.Delete, "Delete tracking history", outlined = true) { confirm = "history" }
-        DangerRow(Icons.Filled.PersonRemove, "Delete account", outlined = false) { confirm = "account" }
+        // Not built yet: plain rows with a "Coming soon" note instead of switches that look usable.
+        PermGroup("Coming soon") {
+            PermRow("Audio understanding", "On-device speech-to-text for talking reels.", trailing = { SoonTag() })
+            PermDivider()
+            PermRow("Topic suggestions from my feed", "Suggest lessons based on what you watch.", trailing = { SoonTag() })
+        }
+        PermGroup("Your data") {
+            DangerRow(Icons.Filled.Delete, "Delete tracking history") { confirm = "history" }
+            PermDivider()
+            DangerRow(Icons.Filled.PersonRemove, "Delete account") { confirm = "account" }
+        }
     }
     when (confirm) {
         "history" -> ConfirmDialog("Delete tracking history?",
@@ -361,7 +389,7 @@ fun PrivacyScreen(onBack: () -> Unit, onAccountDeleted: () -> Unit, vm: Settings
 @Composable
 private fun InfoCard(icon: ImageVector, title: String, body: String, bg: Color, modifier: Modifier) {
     Column(modifier.clip(CardShape).background(bg).border(1.dp, BoomColors.PaperBorder, CardShape).padding(14.dp)) {
-        Icon(icon, null, tint = Color(0xFF8A7CE0))
+        Icon(icon, null, tint = BoomColors.InkSecondary)
         Spacer(Modifier.height(6.dp))
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(body, style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
@@ -369,14 +397,14 @@ private fun InfoCard(icon: ImageVector, title: String, body: String, bg: Color, 
 }
 
 @Composable
-private fun DangerRow(icon: ImageVector, title: String, outlined: Boolean, onClick: () -> Unit) {
+private fun DangerRow(icon: ImageVector, title: String, onClick: () -> Unit) {
     val red = Color(0xFFD32F2F)
-    Row(Modifier.fillMaxWidth().clip(CardShape).background(if (outlined) Color.Transparent else Color(0xFFFDE8E6))
-        .border(1.dp, if (outlined) red else Color.Transparent, CardShape).clickable(role = Role.Button, onClick = onClick).padding(16.dp),
+    // One quiet destructive style (rows inside the "Your data" group); the dialog does the confirming.
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = red)
-        Spacer(Modifier.width(14.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, color = red)
+        Icon(icon, null, Modifier.size(20.dp), tint = red)
+        Spacer(Modifier.width(12.dp))
+        Text(title, style = MaterialTheme.typography.titleSmall, color = red)
     }
 }
 
@@ -403,33 +431,87 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(
     val s by vm.settings.collectAsStateWithLifecycle()
     @Suppress("UNUSED_EXPRESSION") tick
     Page("Permissions", onBack) {
-        PermissionCard("Accessibility", "Counts reels as you scroll. Required for tracking.", m.accessibilityEnabled()) {
-            ctx.startActivity(m.accessibilitySettingsIntent())
+        val accessibility = m.accessibilityEnabled()
+        PermGroup("Needed for tracking") {
+            PermRow("Accessibility", "Counts reels as you scroll.",
+                trailing = { if (accessibility) StatusOn() else SmallAction("Turn on") { ctx.startActivity(m.accessibilitySettingsIntent()) } })
+            if (!accessibility) {
+                PermDivider()
+                // Android greys out the switch for apps installed outside the Play Store until this is allowed.
+                PermRow("Switch greyed out?", "Open App info, tap ⋮, choose Allow restricted settings, then come back.",
+                    trailing = { SmallAction("App info") { ctx.startActivity(m.appInfoIntent()) } })
+            }
+            PermDivider()
+            PermRow("Display over apps", "Shows your budget bar, check-ins and lessons over Instagram.",
+                trailing = { if (m.overlayAllowed()) StatusOn() else SmallAction("Turn on") { ctx.startActivity(m.overlaySettingsIntent()) } })
         }
-        PermissionCard("Display over apps", "Shows your budget bar, check-ins, and lessons over Instagram.", m.overlayAllowed()) {
-            ctx.startActivity(m.overlaySettingsIntent())
+        PermGroup("Optional") {
+            PermRow("Notifications", "Tells you when new lessons are ready.",
+                trailing = { if (m.notificationsAllowed()) StatusOn() else SmallAction("Turn on") { ctx.startActivity(m.appInfoIntent()) } })
+            PermDivider()
+            ScreenUnderstandingRow(m)
         }
-        PermissionCard("Notifications", "Tells you when new lessons are ready.", m.notificationsAllowed()) {
-            ctx.startActivity(m.appInfoIntent())
-        }
-        ScreenUnderstandingCard(m)
-        // How lessons may appear over Instagram, next to the other over-the-app permissions (moved from You).
-        s?.let { settings ->
-            ToggleRow(
-                title = "Nudge for learning content",
-                body = "Ask before playing a lesson over Reels. Turn off to play it automatically.",
-                checked = settings.learningNudgeEnabled,
-                onChange = { vm.setLearningNudgeEnabled(it) },
-            )
-        }
-        Card {
-            Text("Accessibility toggle greyed out?", style = MaterialTheme.typography.titleMedium)
-            Text("Open App info → ⋮ → Allow restricted settings, then come back and turn on Accessibility.",
-                style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
-            Spacer(Modifier.height(8.dp))
-            LearnButton("Open App info", { ctx.startActivity(m.appInfoIntent()) })
+        PermGroup("Lessons") {
+            PermRow("Nudge for learning content", "Ask before playing a lesson over Reels. Off plays it automatically.",
+                trailing = {
+                    Switch(s?.learningNudgeEnabled ?: true, { vm.setLearningNudgeEnabled(it) },
+                        modifier = Modifier.semantics { contentDescription = "Nudge for learning content" },
+                        colors = boomSwitchColors())
+                })
         }
     }
+}
+
+// Grouped list (unslop): one card per group, hairline dividers, one trailing control per row.
+@Composable
+private fun PermGroup(label: String, content: @Composable ColumnScope.() -> Unit) {
+    Column {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = BoomColors.InkSecondary,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        Column(Modifier.fillMaxWidth().clip(CardShape).background(BoomColors.PaperCard)
+            .border(1.dp, BoomColors.PaperBorder, CardShape), content = content)
+    }
+}
+
+@Composable
+private fun PermDivider() = Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(BoomColors.PaperBorder))
+
+@Composable
+private fun PermRow(title: String, body: String, trailing: @Composable () -> Unit, below: (@Composable () -> Unit)? = null) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(2.dp))
+                Text(body, style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
+            }
+            Spacer(Modifier.width(12.dp))
+            Box(Modifier.widthIn(min = 84.dp), contentAlignment = Alignment.CenterEnd) { trailing() }
+        }
+        below?.invoke()
+    }
+}
+
+@Composable
+private fun SoonTag() = Text("Coming soon", style = MaterialTheme.typography.labelSmall, color = BoomColors.InkSecondary)
+
+/** Granted: a quiet status, visibly not a button. */
+@Composable
+private fun StatusOn(label: String = "On") {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {}) {
+        Icon(Icons.Filled.Check, null, Modifier.size(16.dp), tint = Color(0xFF2E9E50))
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = Color(0xFF2E9E50))
+    }
+}
+
+/** Missing: one small button style for every action on this screen. */
+@Composable
+private fun SmallAction(text: String, onClick: () -> Unit) {
+    Text(text, style = MaterialTheme.typography.labelMedium, color = BoomColors.LearnDeep, textAlign = TextAlign.Center,
+        modifier = Modifier.heightIn(min = 36.dp).clip(RoundedCornerShape(10.dp)).background(BoomColors.Paper)
+            .border(1.dp, BoomColors.PaperBorder, RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 9.dp))
 }
 
 /**
@@ -437,7 +519,7 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(
  * Android shows a persistent notification while capture runs and may ask again after a restart (US-07).
  */
 @Composable
-private fun ScreenUnderstandingCard(m: app.boomdoom.core.data.MonitoringGateway) {
+private fun ScreenUnderstandingRow(m: app.boomdoom.core.data.MonitoringGateway) {
     val ctx = LocalContext.current
     val active by m.captureActive.collectAsStateWithLifecycle()
     val download by remember { app.boomdoom.core.network.ModelDownloadWorker.progress(ctx) }
@@ -449,46 +531,33 @@ private fun ScreenUnderstandingCard(m: app.boomdoom.core.data.MonitoringGateway)
     }
     val running = download.first == app.boomdoom.core.network.ModelDownloadState.RUNNING ||
         download.first == app.boomdoom.core.network.ModelDownloadState.WAITING
-    Card {
-        Text("Screen understanding", style = MaterialTheme.typography.titleMedium)
-        Text("Recognises what you watch (food, finance, rage-bait…) entirely on this phone. Frames and captions are " +
-            "analysed in memory and never stored or sent.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
-        Spacer(Modifier.height(10.dp))
-        when {
-            !installed && running -> {
-                Text(if (download.second > 0f) "Downloading models… ${(download.second * 100).toInt()}%"
-                    else "Waiting for Wi-Fi to download models (~240 MB)…", style = MaterialTheme.typography.labelMedium)
-                Spacer(Modifier.height(6.dp))
-                LinearProgressIndicator({ download.second }, Modifier.fillMaxWidth(), color = BoomColors.LearnDeep)
-            }
-            !installed -> {
-                if (download.first == app.boomdoom.core.network.ModelDownloadState.FAILED) {
-                    Text("Download failed. Check your connection and try again.", style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFFD32F2F))
+    val failed = download.first == app.boomdoom.core.network.ModelDownloadState.FAILED
+    val body = when {
+        !installed && running && download.second > 0f -> "Downloading models, ${(download.second * 100).toInt()}%"
+        !installed && running -> "Waiting for Wi-Fi to download the models (about 240 MB)"
+        !installed && failed -> "Download failed. Check your connection and try again."
+        !installed -> "Recognises what you watch on this phone. Needs a one-time 240 MB download on Wi-Fi."
+        active -> "Recognising what you watch, on this phone. Frames and captions stay in memory and are never sent."
+        else -> "Recognises what you watch (food, finance, rage-bait) on this phone. Nothing is stored or sent."
+    }
+    PermRow("Screen understanding", body,
+        trailing = {
+            when {
+                !installed && running -> Unit
+                !installed -> SmallAction(if (failed) "Retry" else "Download") { app.boomdoom.core.network.ModelDownloadWorker.start(ctx) }
+                !active -> SmallAction("Turn on") { consent.launch(m.screenCaptureIntent()) }
+                else -> Column(horizontalAlignment = Alignment.End) {
+                    StatusOn()
+                    Text("Stop", style = MaterialTheme.typography.labelMedium, color = BoomColors.InkSecondary,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) { m.stopScreenCapture() }
+                            .padding(horizontal = 4.dp, vertical = 6.dp))
                 }
-                LearnButton("Download models (~240 MB, Wi-Fi)", { app.boomdoom.core.network.ModelDownloadWorker.start(ctx) })
             }
-            !active -> LearnButton("Turn on", { consent.launch(m.screenCaptureIntent()) })
-            else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Enabled", color = Color(0xFF2E9E50), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                TextButton({ m.stopScreenCapture() }) { Text("Stop") }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PermissionCard(title: String, body: String, granted: Boolean, onFix: () -> Unit) {
-    Card {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(body, style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
-            }
-            if (granted) Text("Enabled", color = Color(0xFF2E9E50), style = MaterialTheme.typography.labelLarge)
-            else TextButton(onFix) { Text("Enable") }
-        }
-    }
+        },
+        below = if (!installed && running) {
+            { LinearProgressIndicator({ download.second }, Modifier.fillMaxWidth().padding(top = 10.dp), color = BoomColors.LearnDeep) }
+        } else null,
+    )
 }
 
 // ------------------------------------------------------------------ About + demo mode (US-34)
