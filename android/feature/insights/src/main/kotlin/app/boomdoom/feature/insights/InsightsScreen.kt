@@ -74,16 +74,26 @@ data class InsightsUi(
     val settings: UserSettings = UserSettings(),
     val today: TodayStats = TodayStats(""),
     val week: List<DailyAggregateEntity> = emptyList(),
+    /** Models are installed but screen capture is off: reels are read from captions only (mostly Other). */
+    val captureOff: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class InsightsViewModel @Inject constructor(settings: SettingsRepository, tracking: TrackingRepository) : ViewModel() {
+class InsightsViewModel @Inject constructor(
+    settings: SettingsRepository,
+    tracking: TrackingRepository,
+    private val monitoring: app.boomdoom.core.data.MonitoringGateway,
+) : ViewModel() {
     private val week = tracking.dayKeys.flatMapLatest { key ->
         tracking.observeDays(LocalDate.parse(key).minusDays(6).toString())
     }
-    val ui: StateFlow<InsightsUi> = combine(settings.settings, tracking.observeToday(), week) { s, t, w -> InsightsUi(s, t, w) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InsightsUi())
+    val ui: StateFlow<InsightsUi> = combine(settings.settings, tracking.observeToday(), week, monitoring.captureActive) { s, t, w, cap ->
+        InsightsUi(s, t, w, captureOff = !cap && monitoring.modelsInstalled() && !s.monitoringPaused)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InsightsUi())
+
+    fun captureIntent() = monitoring.screenCaptureIntent()
+    fun startCapture(resultCode: Int, data: android.content.Intent) = monitoring.startScreenCapture(resultCode, data)
 }
 
 /** Deterministic summary (Tech Spec §5.8 fallback): only facts we have, no guessed reasons or feelings. */
@@ -107,6 +117,22 @@ private val sliceColors = listOf(Color(0xFFFF7A6B), Color(0xFFB4A8F5), Color(0xF
 private val otherColor = Color(0xFFBDB6AA)
 private val unanalysedColor = Color(0xFFE4DDD0)
 
+/** Shown above the categories while screen capture is off, so a grey donut is never left unexplained. */
+@Composable
+private fun CaptureHint(onTurnOn: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(CardShape).background(BoomColors.PaperCard).border(1.dp, BoomColors.PaperBorder, CardShape)
+        .padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Categories need screen understanding", style = MaterialTheme.typography.titleSmall)
+            Text("It's off, so reels are read from captions only and most land in Other.",
+                style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
+        }
+        Spacer(Modifier.width(12.dp))
+        Text("Turn on", style = MaterialTheme.typography.labelMedium, color = BoomColors.LearnDeep,
+            modifier = Modifier.clip(PillShape).clickable(onClick = onTurnOn).padding(horizontal = 8.dp, vertical = 6.dp))
+    }
+}
+
 internal fun labelName(label: String): String = when (label) {
     TodayStats.OTHER -> "Other"
     TodayStats.UNANALYSED -> "Not analysed"
@@ -122,18 +148,18 @@ fun InsightsScreen(onOpenLearn: () -> Unit, vm: InsightsViewModel = hiltViewMode
     PaperTheme {
         Column(Modifier.fillMaxSize().background(BoomColors.Paper).statusBarsPadding().verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(44.dp).clip(PillShape).background(BoomColors.LearnTint), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.BarChart, null, tint = BoomColors.Ink)
-                }
-                Spacer(Modifier.width(10.dp))
-                Text("Insights", style = MaterialTheme.typography.headlineLarge)
-            }
+            Text("Insights", style = MaterialTheme.typography.headlineLarge)
             if (!t.hasTracking && t.lessons == 0 && ui.week.none { it.reels > 0 }) {
                 EmptyInsights(onOpenLearn)
                 return@Column
             }
             Segmented(week) { week = it }
+            if (!week && ui.captureOff) {
+                val consent = androidx.activity.compose.rememberLauncherForActivityResult(
+                    androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(),
+                ) { r -> r.data?.let { if (r.resultCode == android.app.Activity.RESULT_OK) vm.startCapture(r.resultCode, it) } }
+                CaptureHint { consent.launch(vm.captureIntent()) }
+            }
             if (!week) Today(t, ui.settings) else Week(ui.week, ui.settings.budget)
         }
     }
@@ -155,7 +181,7 @@ private fun Segmented(week: Boolean, onChange: (Boolean) -> Unit) {
 private fun Tile(icon: ImageVector, value: String, label: String, tint: Color, modifier: Modifier) {
     Column(modifier.clip(CardShape).background(BoomColors.PaperCard).border(1.dp, BoomColors.PaperBorder, CardShape).padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, tint = tint)
+        Icon(icon, null, Modifier.size(18.dp), tint = BoomColors.InkSecondary) // one role, no per-tile colours
         Text(value, style = MaterialTheme.typography.titleLarge)
         Text(label, style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
     }
@@ -203,16 +229,10 @@ private fun Today(t: TodayStats, s: UserSettings) {
         }
     }
     Card {
-        Row {
-            Box(Modifier.size(52.dp).clip(PillShape).background(BoomColors.LearnTint), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.AutoAwesome, null, tint = BoomColors.Warning)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text("Your daily summary", style = MaterialTheme.typography.titleLarge)
-                Text(summary(t), style = MaterialTheme.typography.bodyMedium, color = BoomColors.InkSecondary)
-            }
-        }
+        // No sparkle tile: the summary is plain facts, not an "AI" moment (unslop).
+        Text("Your daily summary", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(4.dp))
+        Text(summary(t), style = MaterialTheme.typography.bodyMedium, color = BoomColors.InkSecondary)
     }
 }
 

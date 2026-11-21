@@ -42,6 +42,7 @@ class MonitorController @Inject constructor(
     private val tracking: TrackingRepository,
     private val learning: LearningRepository,
     private val analyzer: app.boomdoom.monitor.analysis.ReelAnalyzer,
+    private val captureHub: app.boomdoom.monitor.capture.CaptureHub,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val events = Channel<WatcherEvent>(Channel.UNLIMITED)
@@ -63,6 +64,7 @@ class MonitorController @Inject constructor(
         scope.launch { settingsRepo.settings.collect { onSettings(it) } }
         scope.launch { for (e in events) runCatching { handle(e) } }
         scope.launch { while (true) { delay(15_000); events.trySend(WatcherEvent.Tick(System.currentTimeMillis())) } }
+        scope.launch { captureHub.active.collect { updateCaptureChip() } } // hide the chip once capture starts
     }
 
     fun submit(e: WatcherEvent) { events.trySend(e) }
@@ -200,7 +202,10 @@ class MonitorController @Inject constructor(
                 sessionDay = tracking.dayKey(settings, fx.at)
                 sessionId = tracking.startSession(INSTAGRAM, fx.at, sessionDay!!)
             }
-            is Effect.BarUpdated -> if (reelsVisible && !lessonShowing) overlays.showBar(fx.todayReels, fx.budget)
+            is Effect.BarUpdated -> if (reelsVisible && !lessonShowing) {
+                overlays.showBar(fx.todayReels, fx.budget)
+                updateCaptureChip()
+            }
             // Dev data collection (ml/collect_reels.py): keep counting and classifying, but no check-ins, budget
             // cards or lessons, which would take the screen away from Instagram mid-run.
             is Effect.ShowCheckIn -> if (collecting()) answer(CheckInAction.CONTINUE) else showCheckIn(fx.sessionReels)
@@ -212,6 +217,17 @@ class MonitorController @Inject constructor(
                 overlays.hideAll()
             }
         }
+    }
+
+    /**
+     * "Categories off · Turn on" under the budget bar while Reels are on screen, the models are installed and
+     * screen capture is not running (Android ends it on every app restart; reels are then read from captions only
+     * and mostly land in Other). Tapping opens the system consent dialog and returns to Instagram.
+     */
+    private fun updateCaptureChip() {
+        val want = reelsVisible && !lessonShowing && active() && analyzer.available && !captureHub.active.value && !collecting()
+        if (want) overlays.showCaptureChip { ctx.startActivity(app.boomdoom.monitor.capture.CaptureConsentActivity.intent(ctx)) }
+        else overlays.hideCaptureChip()
     }
 
     /** Debug builds only: the marker can only be created with `adb run-as` (see MlDebugDump). */

@@ -46,6 +46,8 @@ import app.boomdoom.core.designsystem.PrimaryButton
 import app.boomdoom.core.designsystem.SecondaryButton
 import app.boomdoom.core.designsystem.StackedBar
 import app.boomdoom.core.designsystem.TextLink
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.material.icons.outlined.Flag
 
 enum class BarState { NORMAL, NEAR, OVER }
 
@@ -61,9 +63,9 @@ fun BudgetBar(reels: Int, budget: Int) {
     val state = barState(reels, budget)
     val fraction by animateFloatAsState((reels.toFloat() / budget.coerceAtLeast(1)).coerceIn(0f, 1f), tween(600), label = "bar")
     val fill = when (state) {
-        BarState.NORMAL -> Brush.horizontalGradient(listOf(BoomColors.Budget, BoomColors.Boom))
-        BarState.NEAR -> Brush.horizontalGradient(listOf(BoomColors.Boom, BoomColors.Warning))
-        BarState.OVER -> Brush.horizontalGradient(listOf(BoomColors.Budget, BoomColors.Budget))
+        BarState.NORMAL -> SolidColor(BoomColors.Budget) // the red budget line, no hue gradients
+        BarState.NEAR -> SolidColor(BoomColors.Budget)
+        BarState.OVER -> SolidColor(BoomColors.Budget)
     }
     val label = if (state == BarState.OVER) "+${reels - budget}" else "$reels / $budget"
     Row(
@@ -115,7 +117,7 @@ data class CheckInUi(
 fun CheckInCard(ui: CheckInUi, onSwitch: () -> Unit, onContinue: () -> Unit, onDone: () -> Unit, onSnooze: () -> Unit) {
     NightTheme {
         CardScrim {
-            Text("${ui.sessionReels} reels already 👀", style = MaterialTheme.typography.headlineSmall, color = BoomColors.TextPrimary)
+            Text("${ui.sessionReels} reels this session", style = MaterialTheme.typography.headlineSmall, color = BoomColors.TextPrimary)
             if (ui.breakdown.isNotEmpty()) {
                 Text("Here's what you've been watching.", style = MaterialTheme.typography.bodyMedium, color = BoomColors.Lavender)
                 Spacer(Modifier.height(14.dp))
@@ -160,7 +162,9 @@ fun CheckInCard(ui: CheckInUi, onSwitch: () -> Unit, onContinue: () -> Unit, onD
 fun BudgetCard(reels: Int, budget: Int, lessonTopic: String?, onLesson: () -> Unit, onKeep: () -> Unit, onFinish: () -> Unit) {
     NightTheme {
         CardScrim {
-            Text("🎯", style = MaterialTheme.typography.displayMedium)
+            // The red budget line, full: the same bar the user has been watching over Instagram.
+            Box(Modifier.fillMaxWidth(0.6f).height(6.dp).clip(PillShape).background(BoomColors.Budget))
+            Spacer(Modifier.height(16.dp))
             Text("You've reached today's scroll budget.", style = MaterialTheme.typography.headlineSmall,
                 color = BoomColors.TextPrimary, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
@@ -177,13 +181,32 @@ fun BudgetCard(reels: Int, budget: Int, lessonTopic: String?, onLesson: () -> Un
     }
 }
 
+/** Quiet prompt under the budget bar: categories need screen understanding, which Android ends on restarts. */
+@Composable
+fun CaptureChip(onTap: () -> Unit) {
+    Row(
+        Modifier.statusBarsPadding().padding(top = 30.dp, end = 8.dp).clip(PillShape).background(Color(0xE61F2230))
+            .clickable(onClick = onTap).padding(horizontal = 12.dp, vertical = 6.dp)
+            .semantics { contentDescription = "Categories are off. Turn on screen understanding" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Categories off", style = MaterialTheme.typography.labelSmall, color = BoomColors.TextSecondary)
+        Spacer(Modifier.width(8.dp))
+        Text("Turn on", style = MaterialTheme.typography.labelSmall, color = BoomColors.Learn)
+    }
+}
+
 /** Small flag chip (US-14, design v4). Shown only when confidence ≥ threshold. */
 @Composable
 fun FlagTag(label: String) {
     Box(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 14.dp, top = 22.dp)) {
-        Text("⚑ Flagged: $label", style = MaterialTheme.typography.labelMedium, color = BoomColors.Ink,
-            modifier = Modifier.clip(PillShape).background(BoomColors.WarningTint).border(1.dp, BoomColors.Warning, PillShape)
-                .padding(horizontal = 12.dp, vertical = 6.dp))
+        Row(Modifier.clip(PillShape).background(BoomColors.WarningTint).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.Flag, null,
+                Modifier.size(14.dp), tint = BoomColors.Ink)
+            Spacer(Modifier.width(6.dp))
+            Text("Flagged: $label", style = MaterialTheme.typography.labelMedium, color = BoomColors.Ink)
+        }
     }
 }
 

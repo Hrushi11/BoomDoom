@@ -62,20 +62,20 @@ private fun style(size: Int, weight: Int, line: Int = (size * 1.25).toInt()) =
     TextStyle(fontFamily = Jakarta, fontSize = size.sp, fontWeight = FontWeight(weight), lineHeight = line.sp)
 
 val BoomTypography = Typography(
-    displayLarge = style(64, 800, 68),      // big counters ("124 / 150")
-    displayMedium = style(44, 800, 48),
-    headlineLarge = style(34, 800, 40),     // screen titles
-    headlineMedium = style(28, 800, 34),
-    headlineSmall = style(22, 700, 28),
-    titleLarge = style(20, 700),
-    titleMedium = style(17, 700),
-    titleSmall = style(15, 700),
-    bodyLarge = style(16, 500, 22),
-    bodyMedium = style(14, 500, 20),
-    bodySmall = style(12, 500, 16),
-    labelLarge = style(17, 700),            // buttons
-    labelMedium = style(14, 600),
-    labelSmall = style(12, 600),
+    displayLarge = style(64, 600, 68),      // big counters ("124 / 150")
+    displayMedium = style(44, 600, 48),
+    headlineLarge = style(34, 600, 40),     // screen titles
+    headlineMedium = style(28, 600, 34),
+    headlineSmall = style(22, 600, 28),
+    titleLarge = style(20, 600),
+    titleMedium = style(17, 600),
+    titleSmall = style(15, 600),
+    bodyLarge = style(16, 400, 22),
+    bodyMedium = style(14, 400, 20),
+    bodySmall = style(12, 400, 16),
+    labelLarge = style(17, 600),            // buttons
+    labelMedium = style(14, 500),
+    labelSmall = style(12, 500),
 )
 
 /** Extra tokens Material doesn't model. */

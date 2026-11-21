@@ -73,7 +73,10 @@ private class OverlayView(
 }
 
 /** A full-screen interactive overlay consumes touches over the app below. */
-internal class OverlayWindow(private val ctx: Context, private val interactive: Boolean, private val windowGravity: Int) {
+/** [chip]: a small touchable window sized to its content; touches outside it go to the app below. */
+internal class OverlayWindow(
+    private val ctx: Context, private val interactive: Boolean, private val windowGravity: Int, private val chip: Boolean = false,
+) {
     private val wm = ctx.getSystemService(WindowManager::class.java)
     private var view: OverlayView? = null
     private var owner: WindowOwner? = null
@@ -89,15 +92,18 @@ internal class OverlayWindow(private val ctx: Context, private val interactive: 
             setViewTreeSavedStateRegistryOwner(o)
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         }
-        val flags = if (interactive) {
+        val flags = if (chip) {
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        } else if (interactive) {
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
         } else {
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
         }
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            if (interactive) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT,
+            if (chip) WindowManager.LayoutParams.WRAP_CONTENT else WindowManager.LayoutParams.MATCH_PARENT,
+            if (interactive && !chip) WindowManager.LayoutParams.MATCH_PARENT else WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, flags, PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = windowGravity // (a param named `gravity` would shadow-assign the field to itself)
@@ -122,3 +128,4 @@ internal class OverlayWindow(private val ctx: Context, private val interactive: 
 
 internal val TOP = Gravity.TOP or Gravity.FILL_HORIZONTAL
 internal val CENTER = Gravity.CENTER
+internal val TOP_END = Gravity.TOP or Gravity.END

@@ -13,4 +13,5 @@ dependencies {
     implementation(project(":ml:speech"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.activity.compose) // CaptureConsentActivity
 }

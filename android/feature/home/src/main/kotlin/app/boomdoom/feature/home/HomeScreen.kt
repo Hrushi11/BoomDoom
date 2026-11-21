@@ -68,6 +68,9 @@ import app.boomdoom.core.designsystem.Tag
 import app.boomdoom.core.designsystem.TextLink
 import app.boomdoom.core.model.BuiltInLabel
 import app.boomdoom.core.model.MonitoringStatus
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 
 /** US-09, US-10 (designs H1–H4). */
 @Composable
@@ -107,12 +110,12 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
             BudgetCard(t.reels, s.budget, ui.next) { ui.next?.let { onOpenLesson(it.id) } ?: onOpenLearn() }
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("${t.flagged}", "flagged", Color(0xFFFFC94D), { Icon(Icons.Filled.Flag, null, tint = BoomColors.Ink) },
+                StatTile("${t.flagged}", "flagged", { Icon(Icons.Outlined.Flag, null, Modifier.size(18.dp)) },
                     Modifier.weight(1f))
-                StatTile("${t.lessons}", "lessons", Color(0xFF9EE6D8), { Icon(Icons.Filled.MenuBook, null, tint = BoomColors.Ink) },
+                StatTile("${t.lessons}", "lessons", { Icon(Icons.AutoMirrored.Outlined.MenuBook, null, Modifier.size(18.dp)) },
                     Modifier.weight(1f))
-                StatTile("${t.learningSec / 60} min", "learning", Color(0xFF9EE6D8),
-                    { Icon(Icons.Filled.AccessTime, null, tint = BoomColors.Ink) }, Modifier.weight(1.15f))
+                StatTile("${t.learningSec / 60} min", "learning",
+                    { Icon(Icons.Outlined.Schedule, null, Modifier.size(18.dp)) }, Modifier.weight(1.15f))
             }
 
             if (!t.hasTracking) EmptyInsight()
@@ -123,18 +126,18 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
     }
 }
 
-/** "Good evening, Hrushi 👋" + today's date. Name is optional (onboarding / You). */
+/** "Good evening, Hrushi" + today's date (the user asked for a personal greeting). Name is optional. */
 @Composable
 private fun Greeting(name: String) {
     val now = remember { LocalDateTime.now() }
     val part = when (now.hour) { in 5..11 -> "Good morning"; in 12..16 -> "Good afternoon"; in 17..21 -> "Good evening"; else -> "Hey night owl" }
     Column {
         Text(
-            if (name.isBlank()) "$part 👋" else "$part,",
+            if (name.isBlank()) part else "$part,",
             style = MaterialTheme.typography.titleMedium, color = BoomColors.TextSecondary,
         )
         if (name.isNotBlank()) {
-            Text("${name.trim()} 👋", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(name.trim(), style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), style = MaterialTheme.typography.bodyMedium,
             color = BoomColors.TextSecondary)
@@ -178,7 +181,7 @@ private fun SetupBanner(status: MonitoringStatus, onFix: () -> Unit) {
 /** US-32: content understanding is off (never enabled, or Android needs consent again after a restart). */
 @Composable
 private fun CaptureBanner(onResume: () -> Unit) {
-    BoomCard(Modifier.fillMaxWidth(), color = Color(0xFF13222A), border = BoomColors.Learn) {
+    BoomCard(Modifier.fillMaxWidth(), color = BoomColors.CardRaised, border = BoomColors.Border) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Screen understanding is off", style = MaterialTheme.typography.titleSmall)
@@ -274,7 +277,7 @@ private val sliceColors = listOf(Color(0xFFFF7A6B), Color(0xFFB4A8F5), Color(0xF
 @Composable
 private fun InsightCard(t: TodayStats) {
     BoomCard(Modifier.fillMaxWidth()) {
-        Text("📊  Today's insight", style = MaterialTheme.typography.titleMedium)
+        Text("Today's insight", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(10.dp))
         val top = t.breakdown.firstOrNull { it.first != TodayStats.OTHER && it.first != TodayStats.UNANALYSED }
         if (!t.enoughRecognised || top == null) {

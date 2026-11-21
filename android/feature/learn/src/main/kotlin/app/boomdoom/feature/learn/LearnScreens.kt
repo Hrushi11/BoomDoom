@@ -309,11 +309,7 @@ fun TopicsScreen(onBack: () -> Unit, vm: TopicsViewModel = hiltViewModel()) {
                                 t.status == "failed" -> Text("Couldn't prepare lessons. Tap to edit or try again later.",
                                     style = MaterialTheme.typography.bodySmall, color = Color(0xFFD32F2F))
                                 t.status == "preparing" && t.backendId != null -> {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.AutoAwesome, null, tint = BoomColors.Warning, modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Preparing lessons…", style = MaterialTheme.typography.labelSmall, color = Color(0xFFC77700))
-                                    }
+                                    Text("Preparing lessons…", style = MaterialTheme.typography.labelSmall, color = BoomColors.InkSecondary)
                                     LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp), color = BoomColors.Warning)
                                 }
                                 t.backendId == null -> Text("Waiting to sync…", style = MaterialTheme.typography.labelSmall,

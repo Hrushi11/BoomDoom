@@ -193,7 +193,7 @@ internal fun NameStep(s: OnboardingState, vm: OnboardingViewModel) {
         )
         if (s.name.isNotBlank()) {
             Spacer(Modifier.height(16.dp))
-            Text("Nice to meet you, ${s.name.trim()} 👋", style = MaterialTheme.typography.titleMedium, color = BoomColors.TextPrimary)
+            Text("Nice to meet you, ${s.name.trim()}", style = MaterialTheme.typography.titleMedium, color = BoomColors.TextPrimary)
         }
     }
 }
@@ -494,7 +494,7 @@ internal fun PermissionsStep(s: OnboardingState, vm: OnboardingViewModel, onDone
         ModalBottomSheet(onDismissRequest = { guide = false }, containerColor = BoomColors.Card) {
             Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
                 Text("Toggle greyed out?", style = MaterialTheme.typography.headlineSmall)
-                Secondary("No worries! Android restricts apps installed outside an app store. Follow these steps:", align = TextAlign.Start)
+                Secondary("No problem. Android restricts apps installed outside an app store. Follow these steps:", align = TextAlign.Start)
                 Spacer(Modifier.height(14.dp))
                 listOf(
                     "Open BoomDoom's App info" to "Long-press the app icon and tap App info.",

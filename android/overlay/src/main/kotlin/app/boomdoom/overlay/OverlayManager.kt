@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 class OverlayManager(ctx: Context, private val learning: LearningRepository) {
     private val bar = OverlayWindow(ctx, interactive = false, windowGravity = TOP)
     private val flag = OverlayWindow(ctx, interactive = false, windowGravity = TOP)
+    private val captureChip = OverlayWindow(ctx, interactive = false, windowGravity = TOP_END, chip = true)
     private val card = OverlayWindow(ctx, interactive = true, windowGravity = CENTER)
     private val lesson = OverlayWindow(ctx, interactive = true, windowGravity = CENTER)
     private val reels = mutableIntStateOf(0)
@@ -35,6 +36,11 @@ class OverlayManager(ctx: Context, private val learning: LearningRepository) {
         reels.intValue = todayReels
         budget.intValue = dailyBudget
     }
+
+    /** "Turn on" under the budget bar while screen understanding is off (Android ends it on every restart). */
+    fun showCaptureChip(onTap: () -> Unit): Boolean = captureChip.show { CaptureChip(onTap) }
+
+    fun hideCaptureChip() = captureChip.hide()
 
     fun showFlag(label: String, millis: Long = 2500) {
         flagJob?.cancel()
@@ -77,6 +83,7 @@ class OverlayManager(ctx: Context, private val learning: LearningRepository) {
     }
 
     fun hideAll() {
+        captureChip.hide()
         flagJob?.cancel()
         bar.hide(); flag.hide(); card.hide(); lesson.hide()
     }

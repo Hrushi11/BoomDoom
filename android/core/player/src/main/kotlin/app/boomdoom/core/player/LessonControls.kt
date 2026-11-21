@@ -231,8 +231,8 @@ fun LessonReportForm(
     Column(modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
         Text("Report a mistake", style = MaterialTheme.typography.headlineSmall, color = BoomColors.Ink)
         Spacer(Modifier.height(12.dp))
-        listOf("wrong_fact" to "📖  Wrong fact", "other" to "❓  Confusing", "audio_video" to "▶️  Audio/video problem",
-            "inappropriate" to "⚠️  Inappropriate").forEach { (key, label) ->
+        listOf("wrong_fact" to "Wrong fact", "other" to "Confusing", "audio_video" to "Audio or video problem",
+            "inappropriate" to "Inappropriate").forEach { (key, label) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp)).background(Color.White)
                 .border(1.dp, BoomColors.PaperBorder, RoundedCornerShape(12.dp)).clickable(role = Role.RadioButton) { reason = key }
                 .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {

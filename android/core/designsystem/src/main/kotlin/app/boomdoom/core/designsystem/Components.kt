@@ -215,22 +215,17 @@ fun StepDots(step: Int, total: Int, modifier: Modifier = Modifier) {
 
 /** Budget progress: coral→amber gradient, solid red when over. */
 @Composable
-fun BudgetProgress(reels: Int, budget: Int, modifier: Modifier = Modifier, height: Dp = 22.dp) {
+fun BudgetProgress(reels: Int, budget: Int, modifier: Modifier = Modifier, height: Dp = 6.dp) {
     val fraction = (reels.toFloat() / budget.coerceAtLeast(1)).coerceIn(0f, 1f)
-    val over = reels >= budget
     val pct = ((reels.toFloat() / budget.coerceAtLeast(1)) * 100).toInt().coerceAtMost(100)
-    Box(
-        modifier.fillMaxWidth().height(height).clip(PillShape).background(Color(0xFF3A3D4A))
-            .semantics { contentDescription = "$reels of $budget reels, $pct percent" },
-    ) {
-        Box(
-            Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(PillShape).background(
-                if (over) Brush.horizontalGradient(listOf(BoomColors.Budget, BoomColors.Budget))
-                else Brush.horizontalGradient(listOf(BoomColors.Boom, Color(0xFFFF8A3D), BoomColors.Warning)),
-            ),
-        )
-        Text("$pct%", style = MaterialTheme.typography.labelSmall, color = Color.White,
-            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp))
+    Row(modifier.fillMaxWidth().semantics { contentDescription = "$reels of $budget reels, $pct percent" },
+        verticalAlignment = Alignment.CenterVertically) {
+        // The red budget line: the same bar BoomDoom draws over Instagram.
+        Box(Modifier.weight(1f).height(height).clip(PillShape).background(LocalBoomTokens.current.cardRaised)) {
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(PillShape).background(BoomColors.Budget))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text("$pct%", style = MaterialTheme.typography.labelSmall, color = LocalBoomTokens.current.textSecondary)
     }
 }
 
@@ -267,10 +262,14 @@ fun StackedBar(slices: List<Pair<Float, Color>>, modifier: Modifier = Modifier) 
 
 /** Small stat tile: icon badge + value + label (Home "8 flagged"). */
 @Composable
-fun StatTile(value: String, label: String, badge: Color, icon: @Composable () -> Unit, modifier: Modifier = Modifier) {
-    BoomCard(modifier, padding = 10.dp) {
+fun StatTile(value: String, label: String, icon: @Composable () -> Unit, modifier: Modifier = Modifier) {
+    BoomCard(modifier, padding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(badge), contentAlignment = Alignment.Center) { icon() }
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(LocalBoomTokens.current.cardRaised),
+                contentAlignment = Alignment.Center) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    androidx.compose.material3.LocalContentColor provides LocalBoomTokens.current.textSecondary, content = icon)
+            }
             Spacer(Modifier.width(8.dp))
             Column {
                 Text(value, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground,

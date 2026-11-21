@@ -115,7 +115,7 @@ private fun Card(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, c
 private fun MenuRow(icon: ImageVector, tint: Color, title: String, onClick: () -> Unit) {
     Card(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(28.dp))
+            Icon(icon, null, tint = BoomColors.InkSecondary, modifier = Modifier.size(22.dp)) // one icon colour for every row
             Spacer(Modifier.width(16.dp))
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             Icon(Icons.Filled.ChevronRight, null)
@@ -157,14 +157,6 @@ fun YouScreen(onOpen: (SettingsPage) -> Unit, onOpenTopics: () -> Unit, vm: Sett
         MenuRow(Icons.Filled.TrackChanges, Color(0xFFE5484D), "Scrolling goals") { onOpen(SettingsPage.GOALS) }
         MenuRow(Icons.Filled.Flag, Color(0xFFFF7A6B), "Content & flags") { onOpen(SettingsPage.FLAGS) }
         MenuRow(Icons.Filled.MenuBook, BoomColors.LearnDeep, "Learning preferences", onOpenTopics)
-        s?.let { settings ->
-            ToggleRow(
-                title = "Nudge for learning content",
-                body = "Ask before playing a lesson over Reels. Turn off to play it automatically.",
-                checked = settings.learningNudgeEnabled,
-                onChange = { vm.setLearningNudgeEnabled(it) },
-            )
-        }
         MenuRow(Icons.Filled.Security, Color(0xFF8A7CE0), "Privacy & data") { onOpen(SettingsPage.PRIVACY) }
         MenuRow(Icons.Filled.Layers, Color(0xFF4A90D9), "Permissions") { onOpen(SettingsPage.PERMISSIONS) }
         MenuRow(Icons.Filled.Info, BoomColors.LearnDeep, "About") { onOpen(SettingsPage.ABOUT) }
@@ -408,6 +400,7 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(
     var tick by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { tick++ }
     val m = vm.monitoring
+    val s by vm.settings.collectAsStateWithLifecycle()
     @Suppress("UNUSED_EXPRESSION") tick
     Page("Permissions", onBack) {
         PermissionCard("Accessibility", "Counts reels as you scroll. Required for tracking.", m.accessibilityEnabled()) {
@@ -420,6 +413,15 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(
             ctx.startActivity(m.appInfoIntent())
         }
         ScreenUnderstandingCard(m)
+        // How lessons may appear over Instagram, next to the other over-the-app permissions (moved from You).
+        s?.let { settings ->
+            ToggleRow(
+                title = "Nudge for learning content",
+                body = "Ask before playing a lesson over Reels. Turn off to play it automatically.",
+                checked = settings.learningNudgeEnabled,
+                onChange = { vm.setLearningNudgeEnabled(it) },
+            )
+        }
         Card {
             Text("Accessibility toggle greyed out?", style = MaterialTheme.typography.titleMedium)
             Text("Open App info → ⋮ → Allow restricted settings, then come back and turn on Accessibility.",

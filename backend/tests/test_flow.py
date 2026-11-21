@@ -58,6 +58,9 @@ def test_shared_lessons_are_reused_across_users(make_api):
     drain()
     assert _count(Job, Job.stage == "script") == scripts_before  # nothing new generated
     assert {x["lesson_id"] for x in a.get("/v1/feed").json()} == {x["lesson_id"] for x in b.get("/v1/feed").json()}
+    # Reused lessons are already rendered, so no render job ever flips B's topic: it must be ready at once.
+    topic = b.get("/v1/topics").json()[0]
+    assert (topic["status"], topic["ready_count"]) == ("ready", 5)
 
 
 def test_goal_or_custom_topic_is_personal(make_api):

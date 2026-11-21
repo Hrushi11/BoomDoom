@@ -268,7 +268,13 @@ def ensure_stock(db: Session, user_id: uuid.UUID, topic_id: uuid.UUID) -> Plan:
     need = shortfall(active_stock(db, user_id, topic.id), target=s.target_stock, refill_below=s.refill_below)
     if need == 0 and topic.syllabus_id is None:
         need = s.target_stock  # first call: make sure the syllabus gets started
-    return allocate(db, user_id, topic, need)
+    plan = allocate(db, user_id, topic, need)
+    if topic.status == "preparing":
+        # Shared lessons can be handed out already rendered, and then no render job ever refreshes the topic:
+        # it stayed "preparing" with 5 ready lessons. This also repairs topics that are already stuck.
+        db.flush()
+        refresh_topic_status(db, topic)
+    return plan
 
 
 # ---------------------------------------------------------------- status & events
