@@ -1,0 +1,14 @@
+{
+  "version": "2026.11.1",
+  "_note": "Placeholder. Real selectors come from spike S1 (Tech Spec §4.1).",
+  "apps": {
+    "com.instagram.android": [
+      {
+        "min_version": "0",
+        "reels_container": {"view_id": null, "class_name": null, "content_desc_contains": null},
+        "caption_node": {"view_id": null},
+        "full_screen_vertical": true
+      }
+    ]
+  }
+}

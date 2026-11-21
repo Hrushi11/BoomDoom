@@ -1,0 +1,43 @@
+# Hackathon `demo` env (Tech Spec §9.1): API + script worker + render worker + Postgres on one host.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: boomdoom
+      POSTGRES_PASSWORD: boomdoom
+      POSTGRES_DB: boomdoom
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boomdoom"]
+      interval: 5s
+
+  api:
+    build: ../../backend
+    env_file: ../../backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@db:5432/boomdoom
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports: ["8000:8000"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  script-worker:
+    build: ../../backend
+    env_file: ../../backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@db:5432/boomdoom
+    command: python -m workers.script_worker.main
+    depends_on: [api]
+
+  render-worker:
+    build:
+      context: ../../backend
+      dockerfile: workers/render_worker/Dockerfile
+    env_file: ../../backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@db:5432/boomdoom
+    depends_on: [api]
+
+volumes:
+  pgdata:

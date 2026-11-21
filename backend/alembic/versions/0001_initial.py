@@ -1,0 +1,57 @@
+"""initial schema (Tech Spec §8.4)
+
+Generated offline from app.models with the PostgreSQL dialect. Future changes: use
+`alembic revision --autogenerate -m "..."` against a running database.
+
+Revision ID: 0001
+Revises:
+"""
+
+from alembic import op
+
+revision = "0001"
+down_revision = None
+branch_labels = None
+depends_on = None
+
+UPGRADE = [
+    "CREATE TABLE app_user (\n\tid UUID NOT NULL, \n\tinstall_secret_hash TEXT NOT NULL, \n\tauth_provider TEXT, \n\tauth_subject TEXT, \n\tplan TEXT DEFAULT 'free' NOT NULL, \n\tfcm_token TEXT, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tdeleted_at TIMESTAMP WITH TIME ZONE, \n\tPRIMARY KEY (id), \n\tUNIQUE (auth_provider, auth_subject), \n\tUNIQUE (install_secret_hash)\n)",
+    "CREATE TABLE processed_event (\n\tevent_id UUID NOT NULL, \n\tuser_id UUID, \n\tat TIMESTAMP WITH TIME ZONE, \n\tPRIMARY KEY (event_id)\n)",
+    "CREATE TABLE rate_bucket (\n\tuser_id UUID NOT NULL, \n\tbucket TEXT NOT NULL, \n\ttokens INTEGER NOT NULL, \n\trefilled_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\tPRIMARY KEY (user_id, bucket)\n)",
+    "CREATE TABLE lesson_profile (\n\tuser_id UUID NOT NULL, \n\tlanguage TEXT DEFAULT 'en' NOT NULL, \n\tvoice_id TEXT DEFAULT 'af_heart' NOT NULL, \n\tlength_s INTEGER DEFAULT '45' NOT NULL, \n\tversion INTEGER DEFAULT '1' NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (user_id), \n\tFOREIGN KEY(user_id) REFERENCES app_user (id) ON DELETE CASCADE\n)",
+    "CREATE TABLE refresh_token (\n\ttoken_hash TEXT NOT NULL, \n\tuser_id UUID NOT NULL, \n\texpires_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\trevoked BOOLEAN DEFAULT false NOT NULL, \n\tPRIMARY KEY (token_hash), \n\tFOREIGN KEY(user_id) REFERENCES app_user (id) ON DELETE CASCADE\n)",
+    "CREATE TABLE syllabus (\n\tid UUID NOT NULL, \n\ttopic_norm TEXT NOT NULL, \n\tlevel TEXT NOT NULL, \n\tlanguage TEXT NOT NULL, \n\tgoal_hash TEXT, \n\towner_user_id UUID, \n\tconcepts JSONB NOT NULL, \n\tmodel TEXT NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(owner_user_id) REFERENCES app_user (id) ON DELETE CASCADE\n)",
+    "CREATE UNIQUE INDEX syllabus_shared_key ON syllabus (topic_norm, level, language) WHERE owner_user_id is null",
+    "CREATE TABLE topic (\n\tid UUID NOT NULL, \n\tuser_id UUID NOT NULL, \n\tname TEXT NOT NULL, \n\tname_norm TEXT NOT NULL, \n\tlevel TEXT NOT NULL, \n\tgoal TEXT, \n\ttype TEXT NOT NULL, \n\tstatus TEXT DEFAULT 'preparing' NOT NULL, \n\tsyllabus_id UUID, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (user_id, name_norm), \n\tFOREIGN KEY(user_id) REFERENCES app_user (id) ON DELETE CASCADE\n)",
+    "CREATE TABLE lesson (\n\tid UUID NOT NULL, \n\tsyllabus_id UUID, \n\towner_user_id UUID, \n\tconcept TEXT NOT NULL, \n\tconcept_index INTEGER NOT NULL, \n\tformat TEXT NOT NULL, \n\tlevel TEXT NOT NULL, \n\tlanguage TEXT NOT NULL, \n\tvoice_id TEXT NOT NULL, \n\tvisual_style TEXT NOT NULL, \n\taccent_color TEXT NOT NULL, \n\tshare_key TEXT, \n\tscript JSONB, \n\tmanifest JSONB, \n\tduration_s FLOAT, \n\tvideo_key TEXT, \n\tthumb_key TEXT, \n\tstatus TEXT NOT NULL, \n\treport_count INTEGER DEFAULT '0' NOT NULL, \n\thidden BOOLEAN DEFAULT false NOT NULL, \n\tcost_tokens_in INTEGER, \n\tcost_tokens_out INTEGER, \n\trender_seconds FLOAT, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tready_at TIMESTAMP WITH TIME ZONE, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(syllabus_id) REFERENCES syllabus (id), \n\tFOREIGN KEY(owner_user_id) REFERENCES app_user (id) ON DELETE CASCADE\n)",
+    "CREATE INDEX lesson_ready_shared ON lesson (share_key, status) WHERE owner_user_id is null",
+    "CREATE TABLE syllabus_progress (\n\tuser_id UUID NOT NULL, \n\tsyllabus_id UUID NOT NULL, \n\tnext_index INTEGER DEFAULT '0' NOT NULL, \n\tweak_concepts JSONB DEFAULT '[]' NOT NULL, \n\tPRIMARY KEY (user_id, syllabus_id), \n\tFOREIGN KEY(user_id) REFERENCES app_user (id) ON DELETE CASCADE, \n\tFOREIGN KEY(syllabus_id) REFERENCES syllabus (id)\n)",
+    "CREATE TABLE job (\n\tid UUID NOT NULL, \n\tuser_id UUID, \n\ttopic_id UUID, \n\tlesson_id UUID, \n\tstage TEXT NOT NULL, \n\tstatus TEXT NOT NULL, \n\tattempts INTEGER DEFAULT '0' NOT NULL, \n\terror TEXT, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(topic_id) REFERENCES topic (id) ON DELETE CASCADE, \n\tFOREIGN KEY(lesson_id) REFERENCES lesson (id) ON DELETE CASCADE\n)",
+    "CREATE TABLE lesson_report (\n\tid UUID NOT NULL, \n\tlesson_id UUID NOT NULL, \n\tuser_id UUID, \n\treason TEXT NOT NULL, \n\tnote TEXT, \n\tposition_s FLOAT, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(lesson_id) REFERENCES lesson (id)\n)",
+    "CREATE TABLE user_lesson (\n\tuser_id UUID NOT NULL, \n\tlesson_id UUID NOT NULL, \n\tdelivered_at TIMESTAMP WITH TIME ZONE, \n\tstarted_at TIMESTAMP WITH TIME ZONE, \n\tcompleted_at TIMESTAMP WITH TIME ZONE, \n\tskipped BOOLEAN DEFAULT false NOT NULL, \n\tliked BOOLEAN DEFAULT false NOT NULL, \n\tinteraction_results JSONB DEFAULT '[]' NOT NULL, \n\tgo_deeper_choice TEXT, \n\tPRIMARY KEY (user_id, lesson_id), \n\tFOREIGN KEY(user_id) REFERENCES app_user (id) ON DELETE CASCADE, \n\tFOREIGN KEY(lesson_id) REFERENCES lesson (id)\n)",
+]
+
+DOWNGRADE = [
+    "DROP TABLE IF EXISTS user_lesson CASCADE",
+    "DROP TABLE IF EXISTS lesson_report CASCADE",
+    "DROP TABLE IF EXISTS job CASCADE",
+    "DROP TABLE IF EXISTS syllabus_progress CASCADE",
+    "DROP TABLE IF EXISTS lesson CASCADE",
+    "DROP TABLE IF EXISTS topic CASCADE",
+    "DROP TABLE IF EXISTS syllabus CASCADE",
+    "DROP TABLE IF EXISTS refresh_token CASCADE",
+    "DROP TABLE IF EXISTS lesson_profile CASCADE",
+    "DROP TABLE IF EXISTS rate_bucket CASCADE",
+    "DROP TABLE IF EXISTS processed_event CASCADE",
+    "DROP TABLE IF EXISTS app_user CASCADE",
+]
+
+
+def upgrade() -> None:
+    for stmt in UPGRADE:
+        op.execute(stmt)
+
+
+def downgrade() -> None:
+    for stmt in DOWNGRADE:
+        op.execute(stmt)

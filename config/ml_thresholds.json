@@ -1,0 +1,10 @@
+{
+  "version": "2026.11.1",
+  "weights": {"frames": 0.45, "caption": 0.25, "ocr": 0.15, "speech": 0.35},
+  "talking_head_frame_weight": 0.2,
+  "other_threshold": 0.45,
+  "flag_threshold": 0.70,
+  "talking_head_threshold": 0.60,
+  "speech_trigger": 0.55,
+  "secondary_threshold": 0.60
+}

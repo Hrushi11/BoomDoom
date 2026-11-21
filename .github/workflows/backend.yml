@@ -1,0 +1,26 @@
+name: backend
+on:
+  pull_request: { paths: ["backend/**"] }
+  push: { branches: [main], paths: ["backend/**"] }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: boomdoom, POSTGRES_PASSWORD: boomdoom, POSTGRES_DB: boomdoom }
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s
+    env:
+      BOOMDOOM_ENV: test
+      DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@localhost:5432/boomdoom
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e '.[dev]'
+      - run: ruff check . && ruff format --check .
+      - run: mypy app workers
+      - run: alembic upgrade head
+      - run: pytest -q

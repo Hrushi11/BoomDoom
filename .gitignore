@@ -1,0 +1,61 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+*.swp
+*.log
+
+# Secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+google-services.json
+**/secrets/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+
+# Android / Gradle / Kotlin (any depth, incl. build-logic)
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+*.keystore
+*.jks
+*.hprof
+# keep the wrapper so ./gradlew works on a fresh clone
+!gradle/wrapper/gradle-wrapper.jar
+
+# ML artefacts (large, not committed)
+ml/data/
+ml/out/
+*.onnx
+*.gguf
+*.safetensors
+*.pt
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
