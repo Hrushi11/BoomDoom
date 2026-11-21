@@ -19,10 +19,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class Step(val number: Int?) { WELCOME(null), BUDGET(2), LABELS(3), FLAGS(4), TOPICS(5), TRY(6), PERMISSIONS(null) }
+enum class Step(val number: Int?) { WELCOME(null), NAME(1), BUDGET(2), LABELS(3), FLAGS(4), TOPICS(5), TRY(6), PERMISSIONS(null) }
 
 data class OnboardingState(
     val step: Step = Step.WELCOME,
+    val name: String = "",
     val budget: Int = 300,
     val checkIn: Int = 15,
     val customLabels: List<String> = emptyList(),
@@ -50,7 +51,7 @@ class OnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             val s = settings.current()
             _state.update {
-                it.copy(budget = s.budget, checkIn = s.checkInInterval, customLabels = s.customLabels,
+                it.copy(name = s.displayName, budget = s.budget, checkIn = s.checkInInterval, customLabels = s.customLabels,
                     flagged = s.flaggedLabels, topics = s.selectedTopics)
             }
         }
@@ -62,6 +63,13 @@ class OnboardingViewModel @Inject constructor(
     fun back() = _state.update { s ->
         val prev = Step.entries.getOrNull(s.step.ordinal - 1) ?: Step.WELCOME
         s.copy(step = prev)
+    }
+
+    fun setName(v: String) = _state.update { it.copy(name = v.take(30)) }
+
+    fun saveName(skip: Boolean = false) = viewModelScope.launch {
+        if (!skip) settings.setDisplayName(state.value.name)
+        go(Step.BUDGET)
     }
 
     fun setBudget(v: Int) = _state.update { it.copy(budget = v) }

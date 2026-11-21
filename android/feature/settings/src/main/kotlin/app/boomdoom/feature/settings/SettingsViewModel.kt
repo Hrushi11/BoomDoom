@@ -25,8 +25,9 @@ class SettingsViewModel @Inject constructor(
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun setName(name: String) = viewModelScope.launch { repo.setDisplayName(name) }
-    fun setGoals(budget: Int? = null, checkIn: Int? = null, backoff: Boolean? = null, overBudget: Int? = null, resetHour: Int? = null) =
-        viewModelScope.launch { repo.setGoals(budget, checkIn, backoff, overBudget, resetHour) }
+    fun setGoals(budget: Int? = null, checkIn: Int? = null, backoff: Boolean? = null, overBudget: Int? = null,
+                 resetHour: Int? = null, resetMinute: Int? = null) =
+        viewModelScope.launch { repo.setGoals(budget, checkIn, backoff, overBudget, resetHour, resetMinute) }
     fun setPaused(p: Boolean) = viewModelScope.launch { repo.setMonitoringPaused(p) }
     fun toggleFlag(key: String) = viewModelScope.launch {
         val cur = repo.current().flaggedLabels

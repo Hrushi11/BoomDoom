@@ -51,7 +51,8 @@ fun OnboardingScreen(onPlayLesson: (String) -> Unit, onFinished: () -> Unit, vm:
         ) {
             AnimatedContent(s.step, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "step") { step ->
                 when (step) {
-                    Step.WELCOME -> WelcomeStep { vm.go(Step.BUDGET) }
+                    Step.WELCOME -> WelcomeStep { vm.go(Step.NAME) }
+                    Step.NAME -> Stepped(step, vm::back) { NameStep(s, vm) }
                     Step.BUDGET -> Stepped(step, vm::back) { BudgetStep(s, vm) }
                     Step.LABELS -> Stepped(step, vm::back) { LabelsStep(s, vm) }
                     Step.FLAGS -> Stepped(step, vm::back) { FlagsStep(s, vm) }

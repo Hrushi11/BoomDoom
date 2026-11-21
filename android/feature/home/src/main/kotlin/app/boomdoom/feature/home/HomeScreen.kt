@@ -29,6 +29,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.style.TextOverflow
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,10 +84,10 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
                 Illustration(Illus.logo, Modifier.size(32.dp)); Spacer(Modifier.width(8.dp))
                 Text("BoomDoom", style = MaterialTheme.typography.titleMedium)
             }
+            Greeting(s.displayName)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Hey ${s.greetingName} 👋", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 StatusChip(ui.status)
-                Text(" | ", color = BoomColors.TextSecondary)
+                Spacer(Modifier.width(10.dp))
                 TextLink(if (s.monitoringPaused) "Resume" else "Pause", { vm.setPaused(!s.monitoringPaused) },
                     color = BoomColors.TextPrimary, modifier = Modifier.padding(0.dp))
             }
@@ -106,6 +110,24 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
             if (t.hasTracking) InsightCard(t.recognised, t.reels, t.sessions)
             Spacer(Modifier.height(8.dp))
         }
+    }
+}
+
+/** "Good evening, Hrushi 👋" + today's date. Name is optional (onboarding / You). */
+@Composable
+private fun Greeting(name: String) {
+    val now = remember { LocalDateTime.now() }
+    val part = when (now.hour) { in 5..11 -> "Good morning"; in 12..16 -> "Good afternoon"; in 17..21 -> "Good evening"; else -> "Hey night owl" }
+    Column {
+        Text(
+            if (name.isBlank()) "$part 👋" else "$part,",
+            style = MaterialTheme.typography.titleMedium, color = BoomColors.TextSecondary,
+        )
+        if (name.isNotBlank()) {
+            Text("${name.trim()} 👋", style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), style = MaterialTheme.typography.bodyMedium,
+            color = BoomColors.TextSecondary)
     }
 }
 

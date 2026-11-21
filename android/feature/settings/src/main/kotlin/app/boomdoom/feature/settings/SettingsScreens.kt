@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Flag
@@ -67,6 +72,9 @@ import app.boomdoom.core.designsystem.CardShape
 import app.boomdoom.core.designsystem.Illus
 import app.boomdoom.core.designsystem.Illustration
 import app.boomdoom.core.designsystem.LearnButton
+import app.boomdoom.core.designsystem.NumberEntryDialog
+import app.boomdoom.core.designsystem.TimeEntryDialog
+import app.boomdoom.core.designsystem.formatTime
 import app.boomdoom.core.designsystem.PaperTheme
 import app.boomdoom.core.designsystem.PillShape
 import app.boomdoom.core.designsystem.SelectChip
@@ -158,11 +166,17 @@ fun YouScreen(onOpen: (SettingsPage) -> Unit, onOpenTopics: () -> Unit, vm: Sett
 
 // ------------------------------------------------------------------ Y-2 Scrolling goals
 
+private enum class GoalDialog { BUDGET, CHECK_IN, OVER_BUDGET, RESET }
+
+/** US-27 (design Y-2). Presets for speed, plus a custom value for every goal. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GoalsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val st = s ?: return
     var budget by remember(st.budget) { mutableIntStateOf(st.budget) }
+    var dialog by remember { mutableStateOf<GoalDialog?>(null) }
+    val checkInPresets = listOf(5, 10, 15, 25, 50)
     Page("Scrolling goals", onBack) {
         Card {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -170,11 +184,12 @@ fun GoalsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
                     Text("Daily budget", style = MaterialTheme.typography.titleLarge)
                     Text("Maximum number of reels per day.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
                 }
-                Pill("$budget reels")
+                EditablePill("$budget reels") { dialog = GoalDialog.BUDGET }
             }
-            Slider(budget.toFloat(), { budget = (it / 10).toInt() * 10 }, valueRange = 50f..500f,
+            Slider(budget.coerceIn(50, 500).toFloat(), { budget = (it / 10).toInt() * 10 }, valueRange = 50f..500f,
                 onValueChangeFinished = { vm.setGoals(budget = budget) },
                 colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = BoomColors.LearnDeep))
+            Text("Tap the number to type any value.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
         }
         Card {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -182,13 +197,16 @@ fun GoalsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
                     Text("Check in every", style = MaterialTheme.typography.titleLarge)
                     Text("A quick check-in on your progress.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
                 }
-                Pill("${st.checkInInterval} reels")
+                EditablePill("${st.checkInInterval} reels") { dialog = GoalDialog.CHECK_IN }
             }
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(5, 10, 15, 25, 50).forEach { v ->
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                checkInPresets.forEach { v ->
                     SelectChip("$v", st.checkInInterval == v, { vm.setGoals(checkIn = v) }, selectedColor = BoomColors.LearnDeep)
                 }
+                val custom = st.checkInInterval !in checkInPresets
+                SelectChip(if (custom) "Custom · ${st.checkInInterval}" else "Custom", custom, { dialog = GoalDialog.CHECK_IN },
+                    selectedColor = BoomColors.LearnDeep)
             }
         }
         ToggleRow("Ease off when I keep scrolling", "Two 'Continue scrolling' taps in a row double the check-in interval for that session.",
@@ -200,27 +218,58 @@ fun GoalsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Stepper("−") { vm.setGoals(overBudget = (st.overBudgetInterval - 5).coerceAtLeast(10)) }
-                Text("${st.overBudgetInterval} reels", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
+                Text("${st.overBudgetInterval} reels", style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.clip(PillShape).clickable(role = Role.Button) { dialog = GoalDialog.OVER_BUDGET }
+                        .padding(horizontal = 16.dp, vertical = 8.dp))
                 Stepper("+") { vm.setGoals(overBudget = (st.overBudgetInterval + 5).coerceAtMost(100)) }
             }
         }
         Card {
-            Text("New day starts at", style = MaterialTheme.typography.titleLarge)
-            Text("When your daily budget and insights reset.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(0, 3, 4, 5, 6).forEach { h ->
-                    SelectChip(if (h == 0) "12 AM" else "$h AM", st.resetHour == h, { vm.setGoals(resetHour = h) },
-                        selectedColor = BoomColors.LearnDeep)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("New day starts at", style = MaterialTheme.typography.titleLarge)
+                    Text("When your daily budget and insights reset.", style = MaterialTheme.typography.bodySmall,
+                        color = BoomColors.InkSecondary)
+                }
+                Row(Modifier.clip(PillShape).border(1.dp, Color(0xFF9A958B), PillShape)
+                    .clickable(role = Role.Button) { dialog = GoalDialog.RESET }.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Schedule, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(formatTime(st.resetHour, st.resetMinute), style = MaterialTheme.typography.titleSmall)
+                    Icon(Icons.Filled.ExpandMore, null, Modifier.size(18.dp))
                 }
             }
         }
     }
+    when (dialog) {
+        GoalDialog.BUDGET -> NumberEntryDialog("Daily budget", st.budget, 10..2000, "reels", { dialog = null }) {
+            vm.setGoals(budget = it); dialog = null
+        }
+        GoalDialog.CHECK_IN -> NumberEntryDialog("Check in every", st.checkInInterval, 3..100, "reels", { dialog = null }) {
+            vm.setGoals(checkIn = it); dialog = null
+        }
+        GoalDialog.OVER_BUDGET -> NumberEntryDialog("Over-budget check-ins", st.overBudgetInterval, 10..100, "reels", { dialog = null }) {
+            vm.setGoals(overBudget = it); dialog = null
+        }
+        GoalDialog.RESET -> TimeEntryDialog("New day starts at", st.resetHour, st.resetMinute, { dialog = null }) { h, m ->
+            vm.setGoals(resetHour = h, resetMinute = m); dialog = null
+        }
+        null -> Unit
+    }
 }
 
+/** Value pill with an edit affordance: tap to type a custom value. */
 @Composable
-private fun Pill(text: String) = Text(text, style = MaterialTheme.typography.titleSmall, color = BoomColors.LearnDeep,
-    modifier = Modifier.clip(PillShape).background(BoomColors.LearnTint).padding(horizontal = 12.dp, vertical = 6.dp))
+private fun EditablePill(text: String, onClick: () -> Unit) = Row(
+    Modifier.clip(PillShape).background(BoomColors.LearnTint).clickable(role = Role.Button, onClick = onClick)
+        .padding(horizontal = 12.dp, vertical = 6.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    Text(text, style = MaterialTheme.typography.titleSmall, color = BoomColors.LearnDeep)
+    Spacer(Modifier.width(4.dp))
+    Icon(Icons.Filled.Edit, "Edit", Modifier.size(14.dp), tint = BoomColors.LearnDeep)
+}
 
 @Composable
 private fun Stepper(label: String, onClick: () -> Unit) = Box(

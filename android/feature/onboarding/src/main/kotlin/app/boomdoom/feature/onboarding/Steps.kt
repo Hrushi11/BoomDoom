@@ -26,6 +26,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Add
@@ -56,6 +60,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -83,6 +88,7 @@ import app.boomdoom.core.designsystem.AccentHeadline
 import app.boomdoom.core.designsystem.BoomCard
 import app.boomdoom.core.designsystem.BoomColors
 import app.boomdoom.core.designsystem.CardShape
+import app.boomdoom.core.designsystem.NumberEntryDialog
 import app.boomdoom.core.designsystem.Illus
 import app.boomdoom.core.designsystem.Illustration
 import app.boomdoom.core.designsystem.PaperPanel
@@ -163,10 +169,45 @@ internal fun WelcomeStep(onStart: () -> Unit) {
     }
 }
 
-// ------------------------------------------------------------------ O-2 Budget + check-ins
+// ------------------------------------------------------------------ Name (personal greeting on Home)
 
 @Composable
+internal fun NameStep(s: OnboardingState, vm: OnboardingViewModel) {
+    StepBody(bottom = {
+        PrimaryButton("Continue", { vm.saveName() }, enabled = s.name.isNotBlank())
+        TextLink("Skip", { vm.saveName(skip = true) })
+    }) {
+        AccentHeadline("First, what should we ", "call you?")
+        Secondary("Just a first name or nickname. It stays on this phone.")
+        Spacer(Modifier.height(24.dp))
+        PaperPanel(Modifier.fillMaxWidth().height(170.dp)) {
+            Illustration(Illus.welcomeHabits, Modifier.fillMaxSize().padding(12.dp))
+        }
+        Spacer(Modifier.height(24.dp))
+        OutlinedTextField(
+            value = s.name, onValueChange = vm::setName, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Your name") }, textStyle = MaterialTheme.typography.titleLarge,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { if (s.name.isNotBlank()) vm.saveName() }),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BoomColors.Boom, cursorColor = BoomColors.Boom),
+        )
+        if (s.name.isNotBlank()) {
+            Spacer(Modifier.height(16.dp))
+            Text("Nice to meet you, ${s.name.trim()} 👋", style = MaterialTheme.typography.titleMedium, color = BoomColors.TextPrimary)
+        }
+    }
+}
+
+// ------------------------------------------------------------------ O-2 Budget + check-ins
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 internal fun BudgetStep(s: OnboardingState, vm: OnboardingViewModel) {
+    var custom by remember { mutableStateOf<String?>(null) }
+    when (custom) {
+        "budget" -> NumberEntryDialog("Reels per day", s.budget, 10..2000, "reels", { custom = null }) { vm.setBudget(it); custom = null }
+        "checkin" -> NumberEntryDialog("Check in every", s.checkIn, 3..100, "reels", { custom = null }) { vm.setCheckIn(it); custom = null }
+    }
     StepBody(bottom = {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Lock, null, tint = BoomColors.TextSecondary, modifier = Modifier.size(14.dp))
@@ -187,12 +228,14 @@ internal fun BudgetStep(s: OnboardingState, vm: OnboardingViewModel) {
             Text("${s.budget}", style = MaterialTheme.typography.displayLarge, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
             Slider(
-                value = s.budget.toFloat(), onValueChange = { vm.setBudget((it / 10).toInt() * 10) }, valueRange = 50f..500f,
+                value = s.budget.coerceIn(50, 500).toFloat(), onValueChange = { vm.setBudget((it / 10).toInt() * 10) }, valueRange = 50f..500f,
                 colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = BoomColors.Budget,
                     inactiveTrackColor = BoomColors.Border),
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf(100, 150, 200, 300).forEach { v -> SelectChip("$v", s.budget == v, { vm.setBudget(v) }) }
+            val presets = listOf(100, 150, 200, 300)
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { v -> SelectChip("$v", s.budget == v, { vm.setBudget(v) }) }
+                SelectChip("Custom", s.budget !in presets, { custom = "budget" })
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -203,8 +246,10 @@ internal fun BudgetStep(s: OnboardingState, vm: OnboardingViewModel) {
                 Text("Check in with me every…", style = MaterialTheme.typography.titleMedium)
             }
             Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf(10, 15, 25, 30).forEach { v -> SelectChip("$v reels", s.checkIn == v, { vm.setCheckIn(v) }) }
+            val presets = listOf(10, 15, 25, 30)
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                presets.forEach { v -> SelectChip("$v reels", s.checkIn == v, { vm.setCheckIn(v) }) }
+                SelectChip(if (s.checkIn in presets) "Custom" else "Custom · ${s.checkIn}", s.checkIn !in presets, { custom = "checkin" })
             }
             Spacer(Modifier.height(10.dp))
             Secondary("After every ${s.checkIn} reels, you'll see a short summary and a chance to learn.", align = TextAlign.Start)
