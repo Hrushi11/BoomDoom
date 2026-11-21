@@ -1,5 +1,6 @@
-# Build context = repo root; only backend/ and vendor/stickman-studio/ are needed.
+# Build context = repo root; only backend/, config/ (served by /v1/config) and vendor/stickman-studio/ are needed.
 **
+!config/*.json
 !backend/pyproject.toml
 !backend/app/**
 !backend/workers/**
