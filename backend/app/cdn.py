@@ -28,8 +28,14 @@ def _s3():
     from botocore.config import Config
 
     s = get_settings()
+    # Always the bucket's regional endpoint: the global `bucket.s3.amazonaws.com` host only accepts us-east-1
+    # signatures, so presigned URLs for other regions fail with AuthorizationQueryParametersError (HTTP 400).
+    endpoint = s.aws_endpoint_url or f"https://s3.{s.aws_region}.amazonaws.com"
     return boto3.client(
-        "s3", region_name=s.aws_region, endpoint_url=s.aws_endpoint_url or None, config=Config(signature_version="s3v4")
+        "s3",
+        region_name=s.aws_region,
+        endpoint_url=endpoint,
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
     )
 
 

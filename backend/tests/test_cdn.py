@@ -1,0 +1,25 @@
+"""Presigned S3 URLs must use the bucket's regional host (regression: HTTP 400 in us-west-2)."""
+
+from urllib.parse import parse_qs, urlparse
+
+from app import cdn
+from app.config import get_settings
+
+
+def test_presigned_url_uses_regional_endpoint(monkeypatch):
+    monkeypatch.setenv("STORAGE_BACKEND", "s3")
+    monkeypatch.setenv("AWS_REGION", "us-west-2")
+    monkeypatch.setenv("LESSONS_BUCKET", "boomdoom-test-bucket")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIATEST")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret")
+    get_settings.cache_clear()
+    cdn._s3.cache_clear()
+    try:
+        url = urlparse(cdn.sign_url("lessons/abc/v1/lesson_720p.mp4"))
+        scope = parse_qs(url.query)["X-Amz-Credential"][0].split("/")
+        assert url.netloc == "boomdoom-test-bucket.s3.us-west-2.amazonaws.com"
+        assert scope[2] == "us-west-2"
+        assert url.path == "/lessons/abc/v1/lesson_720p.mp4"
+    finally:
+        get_settings.cache_clear()
+        cdn._s3.cache_clear()
