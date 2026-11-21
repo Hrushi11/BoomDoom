@@ -25,6 +25,7 @@ COPY backend/workers ./workers
 RUN pip install --no-cache-dir .
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini ./
+COPY config ./config
 
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /tmp/boomdoom-render && chown app /tmp/boomdoom-render \
