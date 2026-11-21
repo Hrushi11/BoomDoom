@@ -76,8 +76,10 @@ class Settings(BaseSettings):
     fcm_service_account_json: str = ""  # secret; empty disables push
 
     # ---- rendering ----
-    renderer: str = "placeholder"  # "stickman" on render workers
-    stickman_studio_module: str = "stickman_studio.cis_pipeline"
+    renderer: str = "placeholder"  # "stickman" = Stickman Studio fork (boomdoom_entry.py)
+    stickman_studio_dir: str = ""  # checkout of the fork; empty = renderer unavailable
+    stickman_python: str = ""  # its virtualenv's python (default: <dir>/.venv/bin/python)
+    stickman_timeout_s: int = 840  # stay under the render-jobs visibility timeout (900 s)
     ffmpeg_bin: str = "ffmpeg"
     render_tmp_dir: str = "/tmp/boomdoom-render"
 

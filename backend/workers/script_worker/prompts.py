@@ -43,9 +43,12 @@ legal advice; add a one-line disclaimer for finance/health topics.
 Return JSON matching the schema."""
 
 
-def qa_prompt(script_json: str) -> str:
+def qa_prompt(script_json: str, target_words: int, language: str = "en") -> str:
     return (
-        f"Check this lesson script against the rubric:\n{QA_RUBRIC}\n\nScript:\n{script_json}\n\n"
+        f"Check this lesson script against the rubric:\n{QA_RUBRIC}\n\n"
+        f"Context for the rubric: target narration length is {target_words} words in total across all segments "
+        f"(acceptable range {int(target_words * 0.85)}–{int(target_words * 1.15)}); profile language: {language}.\n\n"
+        f"Script:\n{script_json}\n\n"
         "Return JSON {pass: boolean, issues: [string], fixed_script: <schema or null>}. "
         "Fix only small issues; set fixed_script to null for factual problems."
     )

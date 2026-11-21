@@ -101,9 +101,10 @@ class OpenAILLM:
             raise RetryableError("daily OpenAI cost cap reached", delay_s=900, count_attempt=False)
         self.breaker.check()
         try:
+            # The gpt-6 models only accept the default temperature, so the per-step values from Tech Spec §8.7
+            # are not sent (the parameter stays in the interface in case a future model supports it again).
             resp = self.client.chat.completions.create(
                 model=model,
-                temperature=temperature,
                 response_format={"type": "json_schema", "json_schema": schema},
                 messages=[{"role": "user", "content": prompt}],
             )

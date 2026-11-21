@@ -1,25 +1,21 @@
 """Lesson renderers.
 
-`StickmanStudioRenderer` (production) calls our Stickman Studio fork. The fork must expose:
+`StickmanStudioRenderer` (real lessons) runs our Stickman Studio fork in its own virtualenv via
+`boomdoom_entry.py` (headless CISPipeline, Kokoro voice). Contract:
 
-    # module set by STICKMAN_STUDIO_MODULE, default `stickman_studio.cis_pipeline`
-    def render_lesson(params: dict, output_dir: str) -> dict:
-        '''Render one lesson with the Cinematic Illustrated pipeline (headless, no Qt).
-        params keys: topic, script, script_mode="use_as_is", duration, voice_id, format="9:16",
-                     cis_visual_style, cis_accent_color, cis_illustration_mode="pil".
-        Returns {"video": "<path to 1080x1920 mp4>", "project": "<path to project.json>"}.'''
+    <python> boomdoom_entry.py --params params.json --out <dir>
+    -> stdout: {"video": "<1080x1920 mp4>", "project": "<project.json with captions[].words>"}
 
-i.e. a thin wrapper around `CISPipeline(llm_manager=None, tts_manager=..., output_dir, temp_dir).generate_video(params)`
-plus the fork patches in Tech Spec §8.8 (NVENC probe, fonts, music mix, SFX, title glyphs).
+A subprocess keeps its heavy dependencies out of the backend and lets SIGTERM/timeouts kill a stuck render.
 
 `PlaceholderRenderer` needs only ffmpeg: a solid-colour 9:16 video of the right length with silent audio and
-evenly spaced synthetic caption timings. It lets the full pipeline run locally and in CI without the fork.
+evenly spaced synthetic caption timings, for running the pipeline without the fork.
 """
 
 from __future__ import annotations
 
-import importlib
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
@@ -46,10 +42,28 @@ class StickmanStudioRenderer:
     name = "stickman"
 
     def __init__(self) -> None:
-        self.module = importlib.import_module(get_settings().stickman_studio_module)
+        s = get_settings()
+        self.dir = Path(s.stickman_studio_dir)
+        self.python = s.stickman_python or str(self.dir / ".venv" / "bin" / "python")
+        self.timeout = s.stickman_timeout_s
+        if not (self.dir / "boomdoom_entry.py").exists():
+            raise RuntimeError(f"STICKMAN_STUDIO_DIR does not contain boomdoom_entry.py: {self.dir}")
 
     def render(self, params: dict, workdir: Path) -> RenderResult:
-        out = self.module.render_lesson(params, str(workdir))
+        params_file = workdir / "params.json"
+        params_file.write_text(json.dumps(params))
+        env = {**os.environ, "PATH": f"{Path(self.python).parent}{os.pathsep}{os.environ.get('PATH', '')}"}
+        proc = subprocess.run(
+            [self.python, "boomdoom_entry.py", "--params", str(params_file), "--out", str(workdir / "stickman")],
+            cwd=self.dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=self.timeout,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(f"Stickman Studio failed ({proc.returncode}): {proc.stderr[-600:]}")
+        out = json.loads(proc.stdout.strip().splitlines()[-1])
         return RenderResult(Path(out["video"]), json.loads(Path(out["project"]).read_text()))
 
 

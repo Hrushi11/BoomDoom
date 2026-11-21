@@ -243,7 +243,7 @@ def generate_reviewed_script(llm: LLM, inp: ScriptInputs) -> tuple[dict, list[Us
         while True:
             verdict, u = llm.json(
                 model=s.openai_model_qa,
-                prompt=qa_prompt(json.dumps(candidate)),
+                prompt=qa_prompt(json.dumps(candidate), inp.length_s * WORDS_PER_SECOND, inp.language),
                 schema=QA_SCHEMA,
                 temperature=TEMPERATURE["qa"],
             )

@@ -62,7 +62,10 @@ def handle(job_id: uuid.UUID, renderer: Renderer, media: Media) -> None:
         result = renderer.render(params, workdir)
         render_s = time.monotonic() - started
         words = caption_words(result.project)
-        duration = float(result.project.get("duration") or (words[-1]["end"] if words else params["duration"]))
+        shots_end = max((float(sh.get("end", 0)) for sh in result.project.get("shots", [])), default=0.0)
+        duration = float(
+            result.project.get("duration") or shots_end or (words[-1]["end"] if words else params["duration"])
+        )
         seg_ends, fallback = segment_end_times(script["segments"], words, duration)
         if fallback:
             metrics.emit("pause_alignment_fallback", 1)
