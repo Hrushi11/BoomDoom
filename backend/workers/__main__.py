@@ -39,7 +39,15 @@ def build(kind: str) -> Worker:
         renderer, media = get_renderer(), Media()
         return Worker(
             "render",
-            [Route("render-jobs", 900, lambda j: pipeline.handle(j, renderer, media), pipeline.on_render_failure)],
+            # A film (plan, code, two vision reviews, render, audit) takes ~8-20 min; Stickman Studio ~2-5 min.
+            [
+                Route(
+                    "render-jobs",
+                    get_settings().render_visibility_s,
+                    lambda j: pipeline.handle(j, renderer, media),
+                    pipeline.on_render_failure,
+                )
+            ],
         )
     raise SystemExit(f"unknown worker kind: {kind} (expected script|render)")
 

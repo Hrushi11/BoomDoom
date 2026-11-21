@@ -1,6 +1,8 @@
 """Lesson renderers.
 
-`StickmanStudioRenderer` (real lessons) runs our Stickman Studio fork in its own virtualenv via
+`FilmRenderer` directs a film around the approved lesson narration and supplies caption word timings.
+
+`StickmanStudioRenderer` runs our Stickman Studio fork in its own virtualenv via
 `boomdoom_entry.py` (headless CISPipeline, Kokoro voice). Contract:
 
     <python> boomdoom_entry.py --params params.json --out <dir>
@@ -15,7 +17,9 @@ evenly spaced synthetic caption timings, for running the pipeline without the fo
 from __future__ import annotations
 
 import json
+import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
@@ -24,6 +28,8 @@ from typing import Protocol
 
 from app.config import get_settings
 from workers.script_worker.schema import WORDS_PER_SECOND
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -118,6 +124,94 @@ class PlaceholderRenderer:
         return RenderResult(video, {"captions": captions, "duration": duration})
 
 
+class FilmRenderer:
+    """Default lesson renderer: an OpenAI-directed stickman film (workers/film_worker, stickManCustom.md).
+
+    Speaks the lesson's own narration with Stickman Studio's Kokoro voice, has the model plan and code a 9:16 film
+    against vendor/stickman-skill, reviews stills, renders, mixes and audits it. Returns word timings in the same
+    shape as Stickman Studio's project.json, so quiz pauses and the manifest work unchanged.
+    """
+
+    name = "film"
+
+    def __init__(self) -> None:
+        from workers.film_worker.director import Tools
+        from workers.film_worker.llm import FilmLLM
+
+        s = get_settings()
+        studio = Path(s.stickman_studio_dir)
+        skill = Path(s.stickman_skill_dir)
+        if not (studio / "boomdoom_tts.py").exists():
+            raise RuntimeError(f"STICKMAN_STUDIO_DIR does not contain boomdoom_tts.py: {studio}")
+        if not (skill / "scripts" / "build.py").exists():
+            raise RuntimeError(f"STICKMAN_SKILL_DIR is not vendor/stickman-skill: {skill}")
+        self.tools = Tools(
+            skill_dir=skill,
+            studio_dir=studio,
+            python=s.stickman_python or str(studio / ".venv" / "bin" / "python"),
+            models_dir=s.stickman_models_dir,
+            voice_id=s.film_voice_id,
+            jobs=s.film_render_jobs,
+        )
+        self.llm_factory = FilmLLM
+
+    def render(self, params: dict, workdir: Path) -> RenderResult:
+        from workers.film_worker.director import make_film
+
+        sentences = split_sentences(params.get("segments") or [{"narration": params["script"]}])
+        topic = params.get("topic_name") or params["topic"]
+        result = make_film(
+            topic,
+            params.get("concept") or params["topic"],
+            workdir / "film",
+            tools=self.tools,
+            llm=self.llm_factory(),
+            narration=sentences,
+        )
+        log.info(
+            "film rendered",
+            extra={"notes": result.notes[:6], "tokens": result.tokens, "issues": len(result.audit_issues)},
+        )
+        return RenderResult(result.video, film_project(result))
+
+
+def split_sentences(segments: list[dict]) -> list[str]:
+    """Lesson narration -> spoken sentences, in order, words unchanged (segment timing matches on them)."""
+    out: list[str] = []
+    for seg in segments:
+        out += [x.strip() for x in re.split(r"(?<=[.!?])\s+", seg["narration"].strip()) if x.strip()]
+    return out
+
+
+def film_project(result) -> dict:
+    """project.json for a film: per-sentence captions with words spread over each sentence by length."""
+    from workers.film_worker.director import picture_times
+
+    captions = []
+    for s in picture_times(result.sentences):
+        words = s["text"].split()
+        total = sum(len(w) + 1 for w in words) or 1
+        t, span, timed = s["start"], s["end"] - s["start"], []
+        for w in words:
+            d = span * (len(w) + 1) / total
+            timed.append({"word": w, "start": round(t, 3), "end": round(t + d, 3)})
+            t += d
+        captions.append({"text": s["text"], "start": s["start"], "end": s["end"], "words": timed})
+    return {
+        "renderer": "film",
+        "duration": result.duration_s,
+        "title": result.title,
+        "captions": captions,
+        "film": {"notes": result.notes, "audit_issues": result.audit_issues, "tokens": result.tokens},
+    }
+
+
 @lru_cache
 def get_renderer() -> Renderer:
-    return StickmanStudioRenderer() if get_settings().renderer == "stickman" else PlaceholderRenderer()
+    """RENDERER=film (default in the POC image), stickman (previous Stickman Studio engine) or placeholder (tests)."""
+    kind = get_settings().renderer
+    if kind == "film":
+        return FilmRenderer()
+    if kind == "stickman":
+        return StickmanStudioRenderer()
+    return PlaceholderRenderer()

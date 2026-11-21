@@ -7,15 +7,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-li
     && rm -rf /var/lib/apt/lists/*
 
 # ---- Stickman Studio in its own virtualenv (render worker calls boomdoom_entry.py in a subprocess) ----
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 WORKDIR /opt/stickman
 RUN python -m venv .venv && .venv/bin/pip install --no-cache-dir \
       "Pillow>=10" "requests>=2.31" "numpy>=1.24" "tqdm>=4.65" "soundfile>=0.12" "onnxruntime>=1.16" \
-      "tokenizers>=0.19" "kokoro-onnx>=0.3"
+      "tokenizers>=0.19" "kokoro-onnx>=0.3" "playwright>=1.50,<2" "scipy>=1.11"
+RUN .venv/bin/python -m playwright install --with-deps chromium \
+    && chmod -R a+rX /opt/playwright && rm -rf /var/lib/apt/lists/*
 # Kokoro voice model (~115 MB), cached in its own layer
 RUN mkdir -p models/kokoro && cd models/kokoro \
     && curl -fsSL --retry 3 -O https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx \
     && curl -fsSL --retry 3 -O https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
 COPY vendor/stickman-studio/ /opt/stickman/
+COPY vendor/stickman-skill/ /opt/stickman-skill/
 
 # ---- BoomDoom backend ----
 WORKDIR /srv
@@ -33,7 +37,8 @@ RUN useradd --create-home --uid 10001 app \
 USER app
 
 ENV PYTHONUNBUFFERED=1 \
-    RENDERER=stickman \
+    RENDERER=film \
+    STICKMAN_SKILL_DIR=/opt/stickman-skill \
     STICKMAN_STUDIO_DIR=/opt/stickman \
     STICKMAN_PYTHON=/opt/stickman/.venv/bin/python
 EXPOSE 8000

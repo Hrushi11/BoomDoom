@@ -16,7 +16,7 @@ what changed. That also makes this work with short-lived AWS Workshop credential
 | EC2 `c7i.xlarge` (4 vCPU / 8 GB), Amazon Linux 2023 | IMDSv2; no SSH (use SSM Session Manager) |
 | Elastic IP | API at `https://<ip-with-dashes>.sslip.io` (Let's Encrypt via Caddy) unless `domain_name` is set |
 | S3 bucket | Private, encrypted; lessons under `lessons/{id}/v{n}/` |
-| SSM SecureString `/boomdoom-poc/env` | Runtime `.env`: OpenAI key, generated JWT keys, DB password, `RENDERER=stickman` |
+| SSM SecureString `/boomdoom-poc/env` | Runtime `.env`: OpenAI key, generated JWT keys, DB password, `RENDERER=film` |
 | SSM SecureString `/boomdoom-poc/ghcr-token` | GitHub token the host uses to pull the private image |
 | CloudWatch Logs `/boomdoom/poc` | Container logs (JSON) and metrics (Embedded Metric Format) |
 

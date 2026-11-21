@@ -1,4 +1,4 @@
-# Build context = repo root; only backend/, config/ (served by /v1/config) and vendor/stickman-studio/ are needed.
+# Build context = repo root; only backend/, config/ (served by /v1/config) and the two vendored renderers are needed.
 **
 !config/**
 !backend/pyproject.toml
@@ -7,6 +7,7 @@
 !backend/alembic/**
 !backend/alembic.ini
 !vendor/stickman-studio/**
+!vendor/stickman-skill/**
 **/__pycache__
 **/*.pyc
 vendor/stickman-studio/.venv

@@ -20,6 +20,7 @@ from app.domain.sharing import FORMAT_ROTATION
 from app.models import Job, Lesson, Syllabus, SyllabusProgress, Topic, UserLesson
 from app.services import generation
 from workers.common import PermanentError
+from workers.film_worker.prompts import FILM_S
 from workers.script_worker.llm import LLM, Usage
 from workers.script_worker.prompts import qa_prompt, safety_prompt, script_prompt, syllabus_prompt
 from workers.script_worker.schema import (
@@ -217,6 +218,9 @@ def _load_inputs(job_id: uuid.UUID) -> ScriptInputs | None:
 def generate_reviewed_script(llm: LLM, inp: ScriptInputs) -> tuple[dict, list[Usage]]:
     """Write -> validate -> quality check, with one fix attempt and up to 2 regenerations."""
     s = get_settings()
+    film = s.renderer == "film"
+    length_s = FILM_S if film else inp.length_s
+    words = length_s * WORDS_PER_SECOND
     usages: list[Usage] = []
     prompt = script_prompt(
         topic=inp.topic,
@@ -228,7 +232,8 @@ def generate_reviewed_script(llm: LLM, inp: ScriptInputs) -> tuple[dict, list[Us
         objective=inp.concept["objective"],
         covered=inp.covered,
         weak=inp.weak,
-        words=inp.length_s * WORDS_PER_SECOND,
+        words=words,
+        film=film,
     )
     last: list[str] = []
     for _ in range(MAX_SCRIPT_TRIES):
@@ -236,14 +241,14 @@ def generate_reviewed_script(llm: LLM, inp: ScriptInputs) -> tuple[dict, list[Us
             model=s.openai_model_script, prompt=prompt, schema=LESSON_SCRIPT_SCHEMA, temperature=TEMPERATURE["script"]
         )
         usages.append(u)
-        last = validate_script(script, inp.length_s)
+        last = validate_script(script, length_s)
         if last:
             continue
         candidate, fixed_once = script, False
         while True:
             verdict, u = llm.json(
                 model=s.openai_model_qa,
-                prompt=qa_prompt(json.dumps(candidate), inp.length_s * WORDS_PER_SECOND, inp.language),
+                prompt=qa_prompt(json.dumps(candidate), words, inp.language, film=film),
                 schema=QA_SCHEMA,
                 temperature=TEMPERATURE["qa"],
             )
@@ -252,7 +257,7 @@ def generate_reviewed_script(llm: LLM, inp: ScriptInputs) -> tuple[dict, list[Us
                 return candidate, usages
             last = verdict["issues"] or ["quality check failed"]
             fixed = verdict.get("fixed_script")
-            if fixed and not fixed_once and not validate_script(fixed, inp.length_s):
+            if fixed and not fixed_once and not validate_script(fixed, length_s):
                 candidate, fixed_once = fixed, True
                 continue  # re-check the fixed script once
             break

@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     # Everything that goes into the image, including config/ (served by /v1/config) and the build-context filter.
-    paths: ["backend/**", "vendor/stickman-studio/**", "deploy/poc/**", "config/**", ".dockerignore", ".github/workflows/deploy.yml"]
+    paths: ["backend/**", "vendor/stickman-studio/**", "vendor/stickman-skill/**", "deploy/poc/**", "config/**", ".dockerignore", ".github/workflows/deploy.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -73,6 +73,15 @@ jobs:
           docker run --rm -v /tmp/smoke:/smoke -w /opt/stickman "$IMAGE:${{ github.sha }}" \
             /opt/stickman/.venv/bin/python boomdoom_entry.py --params /smoke/params.json --out /smoke/out | tee /tmp/smoke/result.json
           grep -q '"video"' /tmp/smoke/result.json
+      - name: Smoke test the film renderer with the vendored example
+        run: |
+          docker run --rm --network none -v "$PWD/deploy/poc/smoke_film.py:/smoke_film.py:ro" \
+            -v /tmp/smoke:/smoke "$IMAGE:${{ github.sha }}" python /smoke_film.py /smoke
+          docker run --rm --network none -v /tmp/smoke:/smoke:ro "$IMAGE:${{ github.sha }}" \
+            ffprobe -v error -show_entries stream=codec_name,width,height -of csv=p=0 \
+            /smoke/film/film_9x16.mp4 > /tmp/smoke/streams.txt
+          grep -Fxq 'h264,1080,1920' /tmp/smoke/streams.txt
+          grep -Fxq 'aac' /tmp/smoke/streams.txt
       - name: Push
         run: |
           docker tag "$IMAGE:${{ github.sha }}" "$IMAGE:latest"

@@ -55,6 +55,10 @@ def handle(job_id: uuid.UUID, renderer: Renderer, media: Media) -> None:
             "cis_visual_style": lesson.visual_style,
             "cis_accent_color": lesson.accent_color,
             "cis_illustration_mode": "pil",
+            # film renderer: the lesson's own words and what it teaches
+            "segments": [{"id": s["id"], "narration": s["narration"]} for s in script["segments"]],
+            "concept": lesson.concept,
+            "topic_name": topic_name,
         }
 
     root = Path(get_settings().render_tmp_dir)

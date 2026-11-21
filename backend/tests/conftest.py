@@ -12,6 +12,7 @@ _TMP = Path(tempfile.mkdtemp(prefix="boomdoom-test-"))
 os.environ.update(
     {
         "BOOMDOOM_ENV": "test",
+        "RENDERER": "placeholder",
         "QUEUE_BACKEND": "db",
         "STORAGE_BACKEND": "local",
         "LOCAL_STORAGE_DIR": str(_TMP / "storage"),

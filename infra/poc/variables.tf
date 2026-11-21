@@ -32,8 +32,8 @@ variable "openai_daily_cost_cap_usd" {
 
 variable "renderer" {
   type        = string
-  description = "stickman (Stickman Studio, in the image) or placeholder (ffmpeg only)."
-  default     = "stickman"
+  description = "film (OpenAI-directed), stickman (Stickman Studio) or placeholder (ffmpeg only)."
+  default     = "film"
 }
 
 variable "github_owner" {

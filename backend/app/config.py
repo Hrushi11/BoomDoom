@@ -76,12 +76,21 @@ class Settings(BaseSettings):
     fcm_service_account_json: str = ""  # secret; empty disables push
 
     # ---- rendering ----
-    renderer: str = "placeholder"  # "stickman" = Stickman Studio fork (boomdoom_entry.py)
+    renderer: str = "placeholder"  # local default; the POC selects film or stickman
     stickman_studio_dir: str = ""  # checkout of the fork; empty = renderer unavailable
     stickman_python: str = ""  # its virtualenv's python (default: <dir>/.venv/bin/python)
     stickman_timeout_s: int = 840  # stay under the render-jobs visibility timeout (900 s)
     ffmpeg_bin: str = "ffmpeg"
     render_tmp_dir: str = "/tmp/boomdoom-render"
+
+    # ---- film lesson renderer (vendor/stickman-skill) ----
+    stickman_skill_dir: str = ""  # vendor/stickman-skill; empty = the film renderer is unavailable
+    stickman_models_dir: str = ""  # Kokoro voice files for Stickman Studio's TTS (default: <studio>/models)
+    openai_model_film: str = "gpt-6.2-sol"  # writes the script, the plan and film.js, and reviews stills
+    film_openai_timeout_s: float = 300.0  # film.js is thousands of tokens
+    film_voice_id: str = "af_heart"
+    film_tmp_dir: str = "/tmp/boomdoom-films"
+    film_render_jobs: int = 0  # parallel Chromium renderers (0 = the skill's default)
 
     # ---- product rules ----
     target_stock: int = 5
@@ -96,6 +105,10 @@ class Settings(BaseSettings):
     def _unescape_pem(cls, v: str) -> str:
         """Allow PEMs written on one line with literal \\n (env files, SSM parameters)."""
         return v.replace("\\n", "\n").strip()
+
+    @property
+    def render_visibility_s(self) -> int:
+        return 3600 if self.renderer == "film" else 900
 
     @property
     def is_local(self) -> bool:

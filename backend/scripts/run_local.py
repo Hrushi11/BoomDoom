@@ -7,7 +7,7 @@ Starts:
   migrate    alembic upgrade head (once)
   api        uvicorn on 0.0.0.0:<port>; lesson files served from /static
   script     python -m workers script   (OpenAI: syllabus, scripts, QA; account deletion)
-  render     python -m workers render   (placeholder renderer + ffmpeg)
+  render     python -m workers render   (selected renderer + ffmpeg)
   scheduler  python -m app.cron loop    (refill + stuck-job sweeps)
 
 Secrets (OPENAI_API_KEY, ...) come from backend/.env. The values below override the database,
@@ -100,7 +100,7 @@ def main() -> int:
     ap.add_argument("--public-url", default=None, help="Base URL devices use to reach this machine")
     ap.add_argument(
         "--stickman-dir",
-        default=str(ROOT.parent.parent / "Stickman-Studio"),
+        default=os.environ.get("STICKMAN_STUDIO_DIR", str(ROOT.parent.parent / "Stickman-Studio")),
         help="Stickman Studio fork checkout (default: next to the BoomDoom folder)",
     )
     ap.add_argument("--placeholder", action="store_true", help="Use the ffmpeg placeholder renderer instead")
@@ -113,9 +113,11 @@ def main() -> int:
     stickman_ok = (Path(args.stickman_dir) / "boomdoom_entry.py").exists() and (
         Path(args.stickman_dir) / ".venv" / "bin" / "python"
     ).exists()
-    renderer = "stickman" if stickman_ok and not args.placeholder else "placeholder"
-    stickman_dir = args.stickman_dir if stickman_ok else ""
-    say("runner", f"renderer: {renderer}" + (f" ({stickman_dir})" if stickman_ok else ""))
+    renderer = os.environ.get("RENDERER") or ("stickman" if stickman_ok else "placeholder")
+    if args.placeholder:
+        renderer = "placeholder"
+    stickman_dir = args.stickman_dir
+    say("runner", f"renderer: {renderer}" + (f" ({stickman_dir})" if renderer != "placeholder" else ""))
     DATA.mkdir(exist_ok=True)
     say("runner", "starting embedded PostgreSQL…")
     pg, db_url = start_postgres()
