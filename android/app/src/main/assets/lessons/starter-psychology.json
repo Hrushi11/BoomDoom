@@ -1,0 +1,51 @@
+{
+  "lesson_id": "starter-psychology",
+  "topic": {
+    "id": "psychology",
+    "name": "Psychology"
+  },
+  "concept": "The Zeigarnik effect",
+  "format": "guess_first",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 23.67,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 3.93
+    },
+    {
+      "id": "setup",
+      "end_s": 10.23
+    },
+    {
+      "id": "reveal",
+      "end_s": 16.53
+    },
+    {
+      "id": "takeaway",
+      "end_s": 22.17
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 10.38,
+      "type": "predict",
+      "question": "Why did the waiters forget paid orders?",
+      "options": [
+        "Paid orders were boring",
+        "The brain lets go of finished tasks",
+        "They were tired"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Exactly! Finished tasks stop nagging the brain.",
+      "feedback_wrong": "Close. It's about the task being finished."
+    }
+  ],
+  "recap": "Unfinished tasks stick in your mind. Start for 2 minutes to beat procrastination.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}

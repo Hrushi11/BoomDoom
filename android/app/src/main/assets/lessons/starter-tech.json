@@ -1,0 +1,50 @@
+{
+  "lesson_id": "starter-tech",
+  "topic": {
+    "id": "tech",
+    "name": "Tech Explained"
+  },
+  "concept": "What the padlock means",
+  "format": "myth_fact",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 23.67,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 4.27
+    },
+    {
+      "id": "setup",
+      "end_s": 10.9
+    },
+    {
+      "id": "reveal",
+      "end_s": 17.2
+    },
+    {
+      "id": "takeaway",
+      "end_s": 22.17
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 11.05,
+      "type": "true_false",
+      "question": "A padlock means the website is safe and honest.",
+      "options": [
+        "True",
+        "False"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Right! It only means the connection is encrypted.",
+      "feedback_wrong": "Careful: scam sites can have padlocks too."
+    }
+  ],
+  "recap": "HTTPS encrypts your connection, but a padlock doesn't prove a site is honest.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}

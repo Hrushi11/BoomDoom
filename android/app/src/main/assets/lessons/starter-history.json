@@ -1,0 +1,50 @@
+{
+  "lesson_id": "starter-history",
+  "topic": {
+    "id": "history",
+    "name": "History"
+  },
+  "concept": "The Great Wall from space",
+  "format": "myth_fact",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 24.33,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 4.93
+    },
+    {
+      "id": "setup",
+      "end_s": 11.23
+    },
+    {
+      "id": "reveal",
+      "end_s": 17.87
+    },
+    {
+      "id": "takeaway",
+      "end_s": 22.83
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 11.38,
+      "type": "true_false",
+      "question": "You can easily see the Great Wall from space with your eyes.",
+      "options": [
+        "True",
+        "False"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Correct, that's a myth!",
+      "feedback_wrong": "It's a myth: the wall is too narrow."
+    }
+  ],
+  "recap": "The Great Wall isn't easily visible from space: it's long but narrow.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}

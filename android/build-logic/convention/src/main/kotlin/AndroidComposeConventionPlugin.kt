@@ -14,6 +14,8 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
             add("androidTestImplementation", bom)
             add("implementation", catalog.findLibrary("compose-ui").get())
             add("implementation", catalog.findLibrary("compose-material3").get())
+            add("implementation", catalog.findLibrary("compose-material-icons").get())
+            add("implementation", catalog.findLibrary("compose-foundation").get())
             add("implementation", catalog.findLibrary("compose-ui-tooling-preview").get())
             add("debugImplementation", catalog.findLibrary("compose-ui-tooling").get())
         }

@@ -1,0 +1,51 @@
+{
+  "lesson_id": "starter-science",
+  "topic": {
+    "id": "science",
+    "name": "Science"
+  },
+  "concept": "Why the sky is blue",
+  "format": "explainer",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 21.67,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 3.6
+    },
+    {
+      "id": "setup",
+      "end_s": 8.23
+    },
+    {
+      "id": "reveal",
+      "end_s": 14.53
+    },
+    {
+      "id": "takeaway",
+      "end_s": 20.17
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 8.38,
+      "type": "predict",
+      "question": "Which colour scatters the most in air?",
+      "options": [
+        "Red",
+        "Blue",
+        "Green"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Yes! Short blue waves scatter the most.",
+      "feedback_wrong": "It's blue: shorter waves scatter more."
+    }
+  ],
+  "recap": "Air scatters short blue light the most, so the sky looks blue.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}

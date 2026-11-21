@@ -1,0 +1,51 @@
+{
+  "lesson_id": "starter-finance",
+  "topic": {
+    "id": "finance",
+    "name": "Personal Finance"
+  },
+  "concept": "The rule of 72",
+  "format": "explainer",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 24.0,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 4.27
+    },
+    {
+      "id": "setup",
+      "end_s": 10.57
+    },
+    {
+      "id": "reveal",
+      "end_s": 17.2
+    },
+    {
+      "id": "takeaway",
+      "end_s": 22.5
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 10.72,
+      "type": "mcq",
+      "question": "At 12% a year, about how long until money doubles?",
+      "options": [
+        "3 years",
+        "6 years",
+        "12 years"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Spot on: 72 ÷ 12 = 6.",
+      "feedback_wrong": "Try it: 72 ÷ 12 = 6 years."
+    }
+  ],
+  "recap": "Divide 72 by the yearly rate to estimate how many years it takes to double.",
+  "go_deeper": [],
+  "disclaimer": "General education only, not financial advice.",
+  "version": 1
+}

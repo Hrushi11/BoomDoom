@@ -1,0 +1,50 @@
+{
+  "lesson_id": "starter-gk",
+  "topic": {
+    "id": "gk",
+    "name": "General Knowledge"
+  },
+  "concept": "Most time zones",
+  "format": "guess_first",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 21.0,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 4.93
+    },
+    {
+      "id": "setup",
+      "end_s": 9.57
+    },
+    {
+      "id": "reveal",
+      "end_s": 14.53
+    },
+    {
+      "id": "takeaway",
+      "end_s": 19.5
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 9.72,
+      "type": "true_false",
+      "question": "Russia has the most time zones in the world.",
+      "options": [
+        "True",
+        "False"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Right! France has twelve.",
+      "feedback_wrong": "Surprise: France beats Russia, with twelve."
+    }
+  ],
+  "recap": "France has the most time zones: twelve, thanks to its overseas territories.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}

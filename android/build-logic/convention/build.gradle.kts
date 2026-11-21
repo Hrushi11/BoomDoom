@@ -2,7 +2,12 @@ plugins {
     `kotlin-dsl`
 }
 
-java { toolchain { languageVersion.set(JavaLanguageVersion.of(17)) } }
+// Target Java 17 bytecode but run on any JDK >= 17 (JDK 17, Android Studio's JBR 21, CI).
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 dependencies {
     compileOnly(libs.android.gradle.plugin)

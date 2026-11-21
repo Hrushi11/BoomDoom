@@ -59,7 +59,7 @@ enum class Capability { ACCESSIBILITY, OVERLAY, SCREEN_CAPTURE, AUDIO, NOTIFICAT
 @Serializable
 data class LessonManifest(
     @SerialName("lesson_id") val lessonId: String,
-    val topic: TopicRef,
+    val topic: TopicRef? = null,
     val concept: String,
     val format: String,
     val level: String,
@@ -91,3 +91,6 @@ data class Interaction(
     @SerialName("feedback_correct") val feedbackCorrect: String,
     @SerialName("feedback_wrong") val feedbackWrong: String,
 )
+
+/** Live monitoring state for Home (from the accessibility watcher). */
+data class LiveState(val connected: Boolean = false, val reelsVisible: Boolean = false, val sessionReels: Int = 0)

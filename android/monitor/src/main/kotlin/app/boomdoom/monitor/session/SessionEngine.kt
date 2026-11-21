@@ -114,7 +114,7 @@ class SessionEngine(
     private fun onCheckIn(input: Input.CheckInAnswered): List<Effect> = when (input.action) {
         CheckInAction.CONTINUE -> {
             consecutiveContinues++
-            if (consecutiveContinues >= 2) { backoffMultiplier *= 2; consecutiveContinues = 0 }
+            if (settings.backoffEnabled && consecutiveContinues >= 2) { backoffMultiplier *= 2; consecutiveContinues = 0 }
             emptyList()
         }
         CheckInAction.SNOOZE -> { snoozed = true; consecutiveContinues = 0; emptyList() }
@@ -148,4 +148,6 @@ data class SessionSettings(
     val budget: Int = 300,
     val checkInInterval: Int = 15,
     val overBudgetInterval: Int = 25,
+    /** "Ease off when I keep scrolling" (US-27): two Continues in a row double the interval. */
+    val backoffEnabled: Boolean = true,
 )

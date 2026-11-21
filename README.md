@@ -57,7 +57,21 @@ cd android
 ./gradlew :app:assembleProdDebug                  # or :app:assembleDemoDebug for demo mode (§14.3)
 ```
 
-The debug build points at `http://10.0.2.2:8000/` (the host machine from the emulator).
+**Backend URL.** The default is `http://10.0.2.2:8000/` (a backend on your laptop, seen from the emulator). To use the
+AWS POC instead, add this to `android/local.properties`:
+
+```
+boomdoom.apiBaseUrl=https://<your-elastic-ip-with-dashes>.sslip.io/
+```
+
+**Trying it without Instagram.** Open You → About and tap the version 7 times to turn on demo mode. Its buttons
+simulate reels, so the red line, check-ins (every 3 reels in demo mode) and the budget card can all be shown on an
+emulator.
+
+**Assets.** Stickman illustrations are cropped from the mockups in `designs/` (`core/designsystem/.../drawable-nodpi`).
+The 8 starter lessons in `app/src/main/assets/lessons` come from `tools/make_starter_lessons.py`. They are silent
+placeholder videos with timed captions until real Stickman Studio renders replace them. The font is Plus Jakarta Sans
+(OFL; licence in `core/designsystem`).
 
 ## Where things deviate from the Tech Spec
 
@@ -77,4 +91,12 @@ Implemented and unit-tested: SessionEngine (check-ins, back-off, snooze, budget 
 
 **Backend: complete for the POC.** Everything in §8 is implemented: the API, the lesson pipeline (syllabus → script → QA → render → feed), sharing, refill, retries, account deletion, rate limits, the OpenAI cost cap, push notifications, and AWS deployment. Real stickman rendering needs the Stickman Studio fork (see backend/README.md).
 
-**Android:** stubbed with `TODO(owner)` markers (owners follow the §14.1 team split, A–D): accessibility selectors (spike S1), MediaProjection frame sampling, audio capture, ML runtimes, overlay cards, and the lesson player.
+**Android: the POC loop works end to end.** It covers onboarding (6 steps + permissions), reel counting via
+Accessibility, the red-line bar, check-in and budget cards, Home, Learn with the interactive player (predict,
+multiple choice, true/false), recap and Learned, My topics, Insights, You, settings, account deletion, backend sync,
+and demo mode.
+
+**Not built yet:** content classification. That needs screen capture plus the on-device models (SigLIP 2, OCR,
+speech), so until then every reel is recorded as "other" and no category breakdown is shown. Reels-screen detection
+uses a layout heuristic plus unverified view ids (`monitor/src/main/assets/reels_selectors.json`); spike S1 on a real
+phone is needed to confirm them.

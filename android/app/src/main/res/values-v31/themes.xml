@@ -1,0 +1,10 @@
+<resources>
+    <!-- Android 12+ system splash (design b2): dark background with the BoomDoom logo. -->
+    <style name="Theme.BoomDoom" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF0E0F13</item>
+        <item name="android:windowSplashScreenBackground">#FF0E0F13</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

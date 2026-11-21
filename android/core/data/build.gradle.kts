@@ -2,6 +2,7 @@
 plugins {
     id("boomdoom.android.library")
     id("boomdoom.android.hilt")
+    alias(libs.plugins.kotlin.serialization)
 }
 android {
     defaultConfig { ksp { arg("room.schemaLocation", "$projectDir/schemas") } }
@@ -12,6 +13,7 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
-    implementation(libs.datastore.preferences)
+    api(libs.datastore.preferences)
     implementation(libs.security.crypto)
+    api(libs.kotlinx.serialization.json)
 }

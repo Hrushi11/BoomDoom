@@ -1,0 +1,34 @@
+[
+  {
+    "manifest": "lessons/starter-psychology.json",
+    "video": "lessons/starter-psychology.mp4"
+  },
+  {
+    "manifest": "lessons/starter-interview.json",
+    "video": "lessons/starter-interview.mp4"
+  },
+  {
+    "manifest": "lessons/starter-gk.json",
+    "video": "lessons/starter-gk.mp4"
+  },
+  {
+    "manifest": "lessons/starter-finance.json",
+    "video": "lessons/starter-finance.mp4"
+  },
+  {
+    "manifest": "lessons/starter-science.json",
+    "video": "lessons/starter-science.mp4"
+  },
+  {
+    "manifest": "lessons/starter-history.json",
+    "video": "lessons/starter-history.mp4"
+  },
+  {
+    "manifest": "lessons/starter-communication.json",
+    "video": "lessons/starter-communication.mp4"
+  },
+  {
+    "manifest": "lessons/starter-tech.json",
+    "video": "lessons/starter-tech.mp4"
+  }
+]

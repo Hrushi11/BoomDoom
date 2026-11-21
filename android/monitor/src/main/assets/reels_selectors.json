@@ -1,0 +1,15 @@
+{
+  "version": "2026.11.1",
+  "_note": "Bundled default (Tech Spec §4.1, Appendix C). Candidate view ids are unverified until spike S1; detection also uses a layout heuristic (full-screen vertical pager showing exactly one item).",
+  "apps": {
+    "com.instagram.android": {
+      "pager_view_ids": [
+        "com.instagram.android:id/clips_viewer_view_pager",
+        "com.instagram.android:id/clips_viewer_pager",
+        "com.instagram.android:id/clips_video_container"
+      ],
+      "pager_class_hints": ["ViewPager", "RecyclerView"],
+      "min_height_fraction": 0.8
+    }
+  }
+}

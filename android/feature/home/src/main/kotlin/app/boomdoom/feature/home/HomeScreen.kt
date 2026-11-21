@@ -1,19 +1,258 @@
 package app.boomdoom.feature.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.boomdoom.core.designsystem.BoomCard
+import app.boomdoom.core.designsystem.BoomColors
+import app.boomdoom.core.designsystem.BudgetProgress
+import app.boomdoom.core.designsystem.Donut
+import app.boomdoom.core.designsystem.Illus
+import app.boomdoom.core.designsystem.Illustration
+import app.boomdoom.core.designsystem.LearnButton
+import app.boomdoom.core.designsystem.NightTheme
+import app.boomdoom.core.designsystem.PaperPanel
+import app.boomdoom.core.designsystem.PillShape
+import app.boomdoom.core.designsystem.Secondary
+import app.boomdoom.core.designsystem.StatTile
+import app.boomdoom.core.designsystem.StatusPill
+import app.boomdoom.core.designsystem.Tag
+import app.boomdoom.core.designsystem.TextLink
+import app.boomdoom.core.model.BuiltInLabel
+import app.boomdoom.core.model.MonitoringStatus
 
-/** US-09/US-10: reels vs budget, monitoring status, next lesson. */
+/** US-09, US-10 (designs H1–H4). */
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(24.dp)) {
-        Text("Today", style = MaterialTheme.typography.headlineLarge)
-        Text("TODO", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+    val ui by vm.ui.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.refreshStatus() }
+    val s = ui.settings
+    val t = ui.today
+
+    NightTheme {
+        Column(
+            Modifier.fillMaxSize().background(BoomColors.Background).statusBarsPadding().verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Illustration(Illus.logo, Modifier.size(32.dp)); Spacer(Modifier.width(8.dp))
+                Text("BoomDoom", style = MaterialTheme.typography.titleMedium)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Hey ${s.greetingName} 👋", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                StatusChip(ui.status)
+                Text(" | ", color = BoomColors.TextSecondary)
+                TextLink(if (s.monitoringPaused) "Resume" else "Pause", { vm.setPaused(!s.monitoringPaused) },
+                    color = BoomColors.TextPrimary, modifier = Modifier.padding(0.dp))
+            }
+            if (t.demo || s.demoMode) DemoBanner()
+            SetupBanner(ui.status) { ctx.startActivity(vm.fixIntent(ui.status)) }
+
+            BudgetCard(t.reels, s.budget, ui.next) { ui.next?.let { onOpenLesson(it.id) } ?: onOpenLearn() }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile("${t.flagged}", "flagged", Color(0xFFFFC94D), { Icon(Icons.Filled.Flag, null, tint = BoomColors.Ink) },
+                    Modifier.weight(1f))
+                StatTile("${t.lessons}", "lessons", Color(0xFF9EE6D8), { Icon(Icons.Filled.MenuBook, null, tint = BoomColors.Ink) },
+                    Modifier.weight(1f))
+                StatTile("${t.learningSec / 60} min", "learning", Color(0xFF9EE6D8),
+                    { Icon(Icons.Filled.AccessTime, null, tint = BoomColors.Ink) }, Modifier.weight(1.15f))
+            }
+
+            if (!t.hasTracking) EmptyInsight()
+            ui.next?.let { LessonCard(it) { onOpenLesson(it.id) } } ?: NoLessonCard(onOpenLearn)
+            if (t.hasTracking) InsightCard(t.recognised, t.reels, t.sessions)
+            Spacer(Modifier.height(8.dp))
+        }
     }
 }
+
+@Composable
+private fun StatusChip(status: MonitoringStatus) = when (status) {
+    MonitoringStatus.Active -> StatusPill("Monitoring active", BoomColors.Success)
+    MonitoringStatus.Paused -> StatusPill("Monitoring paused", BoomColors.TextSecondary)
+    MonitoringStatus.NeedsReconsent -> StatusPill("Needs your OK", BoomColors.Warning)
+    is MonitoringStatus.Limited -> StatusPill("Limited monitoring", BoomColors.Warning)
+    is MonitoringStatus.SetupRequired -> StatusPill("Setup required", BoomColors.Budget)
+}
+
+@Composable
+private fun SetupBanner(status: MonitoringStatus, onFix: () -> Unit) {
+    val (title, body) = when (status) {
+        is MonitoringStatus.SetupRequired -> "Reel counting is off" to "Turn on Accessibility so BoomDoom can count reels."
+        is MonitoringStatus.Limited -> "Budget bar is off" to "Allow display over apps to see your bar and check-ins."
+        else -> return
+    }
+    BoomCard(Modifier.fillMaxWidth(), color = Color(0xFF221B10), border = BoomColors.Warning) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(BoomColors.Warning), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.LinkOff, null, tint = BoomColors.Ink)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall)
+                Secondary(body, align = TextAlign.Start)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("Fix setup", style = MaterialTheme.typography.labelMedium, color = BoomColors.Background,
+                modifier = Modifier.clip(PillShape).background(BoomColors.Boom)
+                    .clickable(onClick = onFix).padding(horizontal = 14.dp, vertical = 8.dp))
+        }
+    }
+}
+
+@Composable
+private fun BudgetCard(reels: Int, budget: Int, next: NextLesson?, onLesson: () -> Unit) {
+    val over = reels > budget
+    BoomCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = if (over) BoomColors.Budget else BoomColors.Boom)) { append("$reels") }
+                    withStyle(SpanStyle(color = BoomColors.TextPrimary, fontSize = MaterialTheme.typography.displayMedium.fontSize)) {
+                        append(" / $budget")
+                    }
+                },
+                style = MaterialTheme.typography.displayLarge,
+            )
+            if (over) {
+                Spacer(Modifier.width(10.dp))
+                Tag("+${reels - budget} over", color = Color(0xFFFF7A6B), textColor = BoomColors.Ink)
+            }
+        }
+        Text("reels today", style = MaterialTheme.typography.titleMedium, color = BoomColors.TextSecondary,
+            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(12.dp))
+        BudgetProgress(reels, budget)
+        if (over) {
+            Spacer(Modifier.height(10.dp))
+            Secondary("Over today's budget — want a quick learning break?", modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(10.dp))
+            LearnButton(if (next != null) "Start a lesson" else "Open Learn", onLesson, Modifier.fillMaxWidth(),
+                leading = { Icon(Icons.Filled.PlayArrow, null) })
+        }
+    }
+}
+
+@Composable
+private fun LessonCard(next: NextLesson, onStart: () -> Unit) {
+    PaperPanel(Modifier.fillMaxWidth().height(180.dp)) {
+        Row(Modifier.fillMaxSize().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Illustration(Illus.homeLesson, Modifier.weight(0.9f).fillMaxSize())
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1.2f)) {
+                Tag("${next.topic} · ${next.durationS} sec")
+                Spacer(Modifier.height(8.dp))
+                Text(next.concept, style = MaterialTheme.typography.titleLarge, color = BoomColors.Ink, maxLines = 2)
+                Spacer(Modifier.height(10.dp))
+                LearnButton("Start learning", onStart, Modifier.fillMaxWidth(), height = 46.dp,
+                    leading = { Icon(Icons.Filled.PlayArrow, null) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoLessonCard(onOpenLearn: () -> Unit) {
+    PaperPanel(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Your lessons are on the way", style = MaterialTheme.typography.titleLarge, color = BoomColors.Ink)
+            Spacer(Modifier.height(4.dp))
+            Text("Pick topics in Learn and we'll prepare short stickman lessons for you.", color = BoomColors.InkSecondary,
+                style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(10.dp))
+            LearnButton("Open Learn", onOpenLearn)
+        }
+    }
+}
+
+@Composable
+private fun EmptyInsight() {
+    PaperPanel(Modifier.fillMaxWidth().height(150.dp)) {
+        Row(Modifier.fillMaxSize().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Illustration(Illus.homeEmpty, Modifier.weight(1f).fillMaxSize())
+            Spacer(Modifier.width(10.dp))
+            Text("Your insights will appear after your first scroll session.", style = MaterialTheme.typography.titleMedium,
+                color = BoomColors.Ink, modifier = Modifier.weight(1.2f))
+        }
+    }
+}
+
+private val sliceColors = listOf(Color(0xFFFF7A6B), Color(0xFFB4A8F5), Color(0xFF8EE3D2), BoomColors.Warning, Color(0xFF9CC9FF))
+
+@Composable
+private fun InsightCard(recognised: List<Pair<String, Float>>, reels: Int, sessions: Int) {
+    BoomCard(Modifier.fillMaxWidth()) {
+        Text("📊  Today's insight", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(10.dp))
+        if (recognised.isEmpty()) {
+            // Never fabricate categories (US-15/US-24): say what we actually know.
+            Text("$reels reels across $sessions ${if (sessions == 1) "session" else "sessions"} today.",
+                style = MaterialTheme.typography.titleLarge)
+            Secondary("Content categories appear once screen understanding is available.", align = TextAlign.Start)
+        } else {
+            val (top, share) = recognised.first()
+            val name = BuiltInLabel.entries.firstOrNull { it.key == top }?.displayName ?: top.replaceFirstChar { it.uppercase() }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Donut(recognised.take(5).mapIndexed { i, (_, v) -> v to sliceColors[i] }, Modifier.size(96.dp), stroke = 16.dp) {
+                    Text("${(share * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.width(16.dp))
+                Text(buildAnnotatedString {
+                    withStyle(SpanStyle(color = BoomColors.Boom)) { append(name) }
+                    append(" was ${(share * 100).toInt()}% of your feed.")
+                }, style = MaterialTheme.typography.titleLarge)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemoBanner() {
+    Text("Demo data", style = MaterialTheme.typography.labelMedium, color = BoomColors.Ink,
+        modifier = Modifier.fillMaxWidth().clip(PillShape).background(BoomColors.Warning).border(1.dp, BoomColors.Warning, PillShape)
+            .padding(8.dp), textAlign = TextAlign.Center)
+}
+

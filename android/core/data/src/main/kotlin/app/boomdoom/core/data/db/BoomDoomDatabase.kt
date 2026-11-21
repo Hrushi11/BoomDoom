@@ -5,9 +5,9 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [
-        SessionEntity::class, ReelEntity::class, LabelEntity::class, LabelEmbeddingEntity::class,
-        CorrectionEntity::class, DailyAggregateEntity::class, TopicEntity::class, LessonCacheEntity::class,
-        LearnedRecapEntity::class, OutboxEventEntity::class,
+        SessionEntity::class, ReelEntity::class, LabelEmbeddingEntity::class, CorrectionEntity::class,
+        DailyAggregateEntity::class, TopicEntity::class, LessonCacheEntity::class, LearnedRecapEntity::class,
+        OutboxEventEntity::class,
     ],
     version = 1,
     exportSchema = true,

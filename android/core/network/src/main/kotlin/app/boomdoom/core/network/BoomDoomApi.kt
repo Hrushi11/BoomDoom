@@ -18,17 +18,18 @@ interface BoomDoomApi {
     @POST("v1/auth/refresh") suspend fun refresh(@Body body: RefreshRequest): TokenPair
 
     @PUT("v1/users/{id}/lesson-profile")
-    suspend fun putProfile(@Path("id") userId: String, @Body body: LessonProfileRequest): JsonObject
+    suspend fun putProfile(@Path("id") userId: String, @Body body: LessonProfileRequest): LessonProfileResponse
 
     @GET("v1/topics") suspend fun topics(): List<TopicDto>
     @POST("v1/topics") suspend fun createTopic(@Body body: TopicCreate): TopicStatusDto
-    @DELETE("v1/topics/{id}") suspend fun deleteTopic(@Path("id") topicId: String)
+    @DELETE("v1/topics/{id}") suspend fun deleteTopic(@Path("id") topicId: String): retrofit2.Response<Unit>
+    @POST("v1/topics/{id}/retry") suspend fun retryTopic(@Path("id") topicId: String): TopicStatusDto
 
     @GET("v1/feed") suspend fun feed(@Query("topic_id") topicId: String?, @Query("limit") limit: Int = 10): List<LessonManifest>
-    @POST("v1/events") suspend fun events(@Body body: EventBatch): JsonObject
-    @POST("v1/lessons/{id}/reports") suspend fun report(@Path("id") lessonId: String, @Body body: ReportRequest)
+    @POST("v1/events") suspend fun events(@Body body: JsonObject): JsonObject
+    @POST("v1/lessons/{id}/reports") suspend fun report(@Path("id") lessonId: String, @Body body: JsonObject): JsonObject
 
-    @PUT("v1/users/{id}/push-token") suspend fun pushToken(@Path("id") userId: String, @Body body: PushToken)
+    @PUT("v1/users/{id}/push-token") suspend fun pushToken(@Path("id") userId: String, @Body body: PushToken): retrofit2.Response<Unit>
     @DELETE("v1/users/{id}") suspend fun deleteAccount(@Path("id") userId: String): JsonObject
     @GET("v1/config") suspend fun config(): JsonObject
 }
@@ -45,6 +46,10 @@ interface BoomDoomApi {
     @SerialName("refresh_token") val refreshToken: String,
 )
 @Serializable data class TopicIn(val name: String, val level: String, val goal: String? = null, val type: String)
+@Serializable data class LessonProfileResponse(
+    @SerialName("profile_version") val profileVersion: Int,
+    val topics: List<TopicStatusDto>,
+)
 @Serializable data class LessonProfileRequest(
     val language: String, @SerialName("voice_id") val voiceId: String,
     @SerialName("length_s") val lengthS: Int, val topics: List<TopicIn>,

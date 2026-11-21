@@ -1,0 +1,52 @@
+{
+  "lesson_id": "starter-interview",
+  "topic": {
+    "id": "interview",
+    "name": "Interview Prep"
+  },
+  "concept": "The STAR method",
+  "format": "explainer",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 23.33,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 4.6
+    },
+    {
+      "id": "setup",
+      "end_s": 9.9
+    },
+    {
+      "id": "reveal",
+      "end_s": 17.2
+    },
+    {
+      "id": "takeaway",
+      "end_s": 21.83
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 10.05,
+      "type": "mcq",
+      "question": "Which STAR part deserves the most time?",
+      "options": [
+        "Situation",
+        "Task",
+        "Action",
+        "Result"
+      ],
+      "answer_index": 2,
+      "feedback_correct": "Yes! Your actions show how you think.",
+      "feedback_wrong": "Not quite. Interviewers care most about what you did."
+    }
+  ],
+  "recap": "Answer behavioural questions with STAR, and spend most of your time on the Action.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}

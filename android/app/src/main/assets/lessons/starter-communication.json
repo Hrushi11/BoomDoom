@@ -1,0 +1,51 @@
+{
+  "lesson_id": "starter-communication",
+  "topic": {
+    "id": "communication",
+    "name": "Communication"
+  },
+  "concept": "The power of a pause",
+  "format": "explainer",
+  "level": "beginner",
+  "language": "en",
+  "duration_s": 21.67,
+  "segments": [
+    {
+      "id": "hook",
+      "end_s": 3.93
+    },
+    {
+      "id": "setup",
+      "end_s": 9.23
+    },
+    {
+      "id": "reveal",
+      "end_s": 15.2
+    },
+    {
+      "id": "takeaway",
+      "end_s": 20.17
+    }
+  ],
+  "interactions": [
+    {
+      "id": "i1",
+      "after_segment": "setup",
+      "pause_at_s": 9.38,
+      "type": "mcq",
+      "question": "What should replace filler words?",
+      "options": [
+        "Speaking faster",
+        "A short pause",
+        "A joke"
+      ],
+      "answer_index": 1,
+      "feedback_correct": "Yes! Pauses sound calm and confident.",
+      "feedback_wrong": "Try a short pause instead."
+    }
+  ],
+  "recap": "Swap filler words for short pauses to sound calmer and more confident.",
+  "go_deeper": [],
+  "disclaimer": null,
+  "version": 1
+}
