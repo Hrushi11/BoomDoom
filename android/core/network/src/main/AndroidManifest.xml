@@ -1,1 +1,7 @@
-<manifest />
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This module is the only one that talks to the backend (Tech Spec §3.2), so it declares what it uses. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- SyncWorker checks for a metered network before downloading lesson videos. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>
