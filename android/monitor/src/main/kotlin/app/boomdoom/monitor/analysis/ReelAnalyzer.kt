@@ -56,6 +56,7 @@ class ReelAnalyzer @Inject constructor(
     private var caption: CaptionClassifier? = null
     private var vision: FrameClassifier? = null
     private var loadedCustom: List<String> = emptyList()
+    private var loadedVersion: String? = null
     private var lastThumb: IntArray? = null
 
     val available: Boolean get() = models.installed()
@@ -130,6 +131,12 @@ class ReelAnalyzer @Inject constructor(
     }
 
     private fun ensureLoaded(customLabels: List<String>) {
+        val version = models.version()
+        if (version != loadedVersion) { // a newer model set was downloaded: reload both
+            caption?.close(); caption = null
+            vision?.close(); vision = null
+            loadedVersion = version
+        }
         if (caption == null || loadedCustom != customLabels) {
             caption?.close()
             caption = CaptionClassifier(models.dir, customLabels)

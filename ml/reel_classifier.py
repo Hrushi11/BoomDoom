@@ -25,6 +25,32 @@ LABELS = {
     ),
 }
 
+# "None of these": everyday reel content that is not one of the categories. Without it, selfies, pets and
+# scenery drifted into rage_bait/news on Reels-styled frames (ml/README.md, Android POC notes).
+BACKGROUND = [
+    "a selfie video", "a vlog of someone's day", "friends hanging out", "a pet or an animal",
+    "a landscape or scenery", "a dance video", "people at a party or event", "a cartoon or animation",
+    "a meme with text", "a screenshot of an app", "a close-up of a face",
+]
+# Frame groups that compete in the softmax but never become a category score. Rage-bait is about tone,
+# which one frame cannot show, so frames never vote for it. Same rule as Android FrameClassifier.calibrate.
+FRAME_HIDDEN = {"talking_head", "background", "rage_bait"}
+FRAME_GATE_LOGIT = -9.0
+
+
+def calibrate_frame(logits):
+    """Group logits -> category scores: softmax over every group times a gate on the best logit."""
+    import math
+
+    top = max(logits.values())
+    weights = {k: math.exp(v - top) for k, v in logits.items()}
+    total = sum(weights.values())
+    gate = 1 / (1 + math.exp(-(top - FRAME_GATE_LOGIT)))
+    scores = {k: w / total * gate for k, w in weights.items() if k not in FRAME_HIDDEN}
+    if "talking_head" in logits:
+        scores["talking_head"] = 1 / (1 + math.exp(-logits["talking_head"]))
+    return scores
+
 
 def label_descriptions(custom):
     labels = LABELS.copy()
@@ -32,7 +58,7 @@ def label_descriptions(custom):
         raise ValueError("the MVP supports up to two custom labels")
     for name in custom:
         key = name.strip().lower()
-        if not key or key in labels or key in {"other", "talking_head"}:
+        if not key or key in labels or key in {"other", "talking_head", "background"}:
             raise ValueError(f"invalid or duplicate custom label: {name!r}")
         labels[key] = (key, [f"a short video about {key}", f"a reel showing {key}"])
     return labels
@@ -159,6 +185,7 @@ class LocalModels:
         processor = AutoProcessor.from_pretrained(self.vision_dir, local_files_only=True, use_fast=False)
         prompts = {key: phrases for key, (_, phrases) in self.labels.items()}
         prompts["talking_head"] = ["a person talking directly to the camera"]
+        prompts["background"] = BACKGROUND
         texts = [s for phrases in prompts.values() for s in phrases]
         inputs = processor(text=texts, padding="max_length", truncation=True, max_length=64, return_tensors="pt")
         with torch.inference_mode():
@@ -202,9 +229,9 @@ class LocalModels:
         with torch.inference_mode():
             features = torch.nn.functional.normalize(model.get_image_features(**inputs), dim=-1)
             logits = (features @ text_features.T) * model.logit_scale.exp() + model.logit_bias
-            groups = logits.sigmoid().split([len(v) for v in prompts.values()], dim=1)
-            scores = torch.stack([group.amax(dim=1) for group in groups], dim=1)
-        return [dict(zip(prompts, row, strict=True)) for row in scores.tolist()]
+            groups = logits.split([len(v) for v in prompts.values()], dim=1)
+            best = torch.stack([group.amax(dim=1) for group in groups], dim=1)
+        return [calibrate_frame(dict(zip(prompts, row, strict=True))) for row in best.tolist()]
 
     @cached_property
     def speech(self):

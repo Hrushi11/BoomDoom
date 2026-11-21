@@ -64,6 +64,39 @@ Sources for the model comparison and export are listed here. [MiniLM](https://hu
 
 The live outputs are Comedy, Fitness, Education, Food, News, Finance, Rage-bait and Ads, plus Other and up to two custom labels. The internal talking-head signal only controls routing. Raw feed frames, captions, audio and transcripts stay in memory. Production traffic for model delivery or lessons must carry no feed content.
 
+## Android POC implementation notes (21 Nov 2026)
+
+- **Tokenizer:** the caption model is tokenized in Kotlin (`android/ml/text/.../UnigramTokenizer.kt`) instead of the
+  `onnxruntime-extensions` graph, because extensions 0.13.0 ships 4 KB-aligned native libraries that fail Android 15's
+  16 KB page check. It matches Hugging Face on 249/249 reference texts (3,607 tokens), including Devanagari, romanized
+  Hinglish and emoji. `export_onnx.py --stage caption` now writes `caption_vocab.bin` in place of `tokenizer.onnx`;
+  ONNX Runtime is 1.23.2 (16 KB-aligned).
+- **Frame score calibration:** SigLIP's per-label sigmoid is near zero even for an obvious match (clear food
+  photos: 0.009 and 0.001), so it can never pass the fusion thresholds. Both the app (`FrameClassifier.calibrate`)
+  and `reel_classifier.calibrate_frame` recover the group logits, take a softmax over all of them, and multiply by
+  a soft gate centred at a top logit of −9.
+- **Background group and the rage-bait rule (after the first Pixel 9 run):**
+  - The first Pixel run classified 11 real reels: 10 came out Other at low confidence, and 1 came out News at 0.47.
+  - On Reels-styled frames, selfies, pets and scenery had no category of their own, so they drifted into rage-bait
+    (0.4–0.7).
+  - The vision graph now has a `background` group (11 "none of these" prompts in `BACKGROUND`).
+  - Frames never vote rage-bait, because a single frame can't show tone. Rage-bait stays in the softmax only as a
+    sink, and comes from captions, and later from speech.
+  - The app classifies only the video area. It cuts away 8% at the top, 22% at the bottom and 13% on the right,
+    where Instagram draws its buttons and text. Without the crop, a clear food frame scored 0.61 instead of 0.93.
+  - Measured on 12 Reels-styled frames with the int8 model:
+    - food 0.90 and a rally speech News 0.84;
+    - selfies, a pet, scenery and a cartoon → Other;
+    - two group-of-people shots still read as News (0.63–0.71).
+  - Re-tune on the labelled 100-reel set.
+- **Verified on the emulator against the AWS backend:**
+  - Decisive caption: food 0.915 from the caption alone, the same as the Pixel benchmark.
+  - Weak caption ("…paneer tikka recipe…" scores food 0.544) over a non-food screen: Other 0.195. This matches the
+    Python reference (0.194).
+  - No caption, food photo on screen: food 0.653 from the frame alone.
+- **Delivery:** `ml/publish_models.py` uploads the five files with SHA-256 to `models/<version>/`. The backend serves them
+  at `GET /v1/models`, and the app downloads them on Wi-Fi and verifies the hashes.
+
 ## Proving the live implementation
 
 | Milestone | Evidence required |

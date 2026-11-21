@@ -26,7 +26,8 @@ interface TrackingDao {
     fun observeReels(dayKey: String): Flow<List<ReelEntity>>
 
     @Query(
-        "SELECT COALESCE(correctedLabel, primaryLabel) AS label, COUNT(*) AS count FROM reel " +
+        "SELECT CASE WHEN correctedLabel IS NULL AND signals = 0 THEN 'unanalysed' " +
+            "ELSE COALESCE(correctedLabel, primaryLabel) END AS label, COUNT(*) AS count FROM reel " +
             "WHERE dayKey = :dayKey GROUP BY label ORDER BY count DESC",
     )
     fun observeLabelCounts(dayKey: String): Flow<List<LabelCount>>
@@ -38,7 +39,8 @@ interface TrackingDao {
     fun observePeakHour(dayKey: String): Flow<HourCount?>
 
     @Query(
-        "SELECT COALESCE(correctedLabel, primaryLabel) AS label, COUNT(*) AS count FROM reel " +
+        "SELECT CASE WHEN correctedLabel IS NULL AND signals = 0 THEN 'unanalysed' " +
+            "ELSE COALESCE(correctedLabel, primaryLabel) END AS label, COUNT(*) AS count FROM reel " +
             "WHERE sessionId = :sessionId GROUP BY label ORDER BY count DESC",
     )
     suspend fun sessionLabelCounts(sessionId: String): List<LabelCount>

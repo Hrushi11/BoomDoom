@@ -90,9 +90,10 @@ class InsightsViewModel @Inject constructor(settings: SettingsRepository, tracki
 internal fun summary(t: TodayStats): String = buildString {
     append("You watched ${t.reels} reels today")
     append(if (t.sessions > 0) " across ${t.sessions} ${if (t.sessions == 1) "session" else "sessions"}." else ".")
-    t.recognised.firstOrNull()?.let { (label, share) ->
-        val name = BuiltInLabel.entries.firstOrNull { it.key == label }?.displayName ?: label
-        append(" $name made up ${(share * 100).toInt()}% of recognised content.")
+    if (t.enoughRecognised) t.recognised.firstOrNull()?.let { (label, share) ->
+        append(" ${labelName(label)} made up ${(share * 100).toInt()}% of the ${t.recognisedCount} reels BoomDoom recognised.")
+    } else if (t.recognisedCount > 0) {
+        append(" BoomDoom recognised ${t.recognisedCount} of ${t.reels} reels so far, too few to show a pattern.")
     }
     if (t.longestSessionSec >= 60) {
         append(" Your longest session was ${t.longestSessionSec / 60} minutes")
@@ -102,7 +103,15 @@ internal fun summary(t: TodayStats): String = buildString {
     append(" You completed ${t.lessons} ${if (t.lessons == 1) "lesson" else "lessons"}.")
 }
 
-private val sliceColors = listOf(Color(0xFFFF7A6B), Color(0xFFB4A8F5), Color(0xFF8EE3D2), Color(0xFFFFD166), Color(0xFF9CC9FF), Color(0xFFD0D0D0))
+private val sliceColors = listOf(Color(0xFFFF7A6B), Color(0xFFB4A8F5), Color(0xFF8EE3D2), Color(0xFFFFD166), Color(0xFF9CC9FF))
+private val otherColor = Color(0xFFBDB6AA)
+private val unanalysedColor = Color(0xFFE4DDD0)
+
+internal fun labelName(label: String): String = when (label) {
+    TodayStats.OTHER -> "Other"
+    TodayStats.UNANALYSED -> "Not analysed"
+    else -> BuiltInLabel.entries.firstOrNull { it.key == label }?.displayName ?: label.replaceFirstChar { it.uppercase() }
+}
 
 /** US-24, US-25, US-26 (designs I1, I3, I4). */
 @Composable
@@ -162,29 +171,31 @@ private fun Today(t: TodayStats, s: UserSettings) {
         Tile(Icons.Filled.Timer, "${t.longestSessionSec / 60} min", "longest", BoomColors.LearnDeep, Modifier.weight(1f))
     }
     Card {
-        val shares = t.recognised
-        if (shares.isEmpty()) {
+        if (t.unanalysedCount == t.reels && t.recognisedCount == 0 && t.otherCount == 0) {
             Text("What you watched", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(6.dp))
-            Text("Content categories need screen understanding, which is coming soon. Until then BoomDoom counts reels and sessions only — it never guesses.",
+            Text("Turn on screen understanding to see what you watch. Until then BoomDoom counts reels and sessions only — it never guesses.",
                 style = MaterialTheme.typography.bodyMedium, color = BoomColors.InkSecondary)
         } else {
+            // Slices are shares of ALL reels, so Other and not-analysed reels stay visible.
+            val slices = t.breakdown.filter { it.first != TodayStats.OTHER && it.first != TodayStats.UNANALYSED }.take(5)
+                .mapIndexed { i, (l, v) -> Triple(l, v, sliceColors[i]) } +
+                t.breakdown.filter { it.first == TodayStats.OTHER }.map { (l, v) -> Triple(l, v, otherColor) } +
+                t.breakdown.filter { it.first == TodayStats.UNANALYSED }.map { (l, v) -> Triple(l, v, unanalysedColor) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Donut(shares.take(6).mapIndexed { i, (_, v) -> v to sliceColors[i] }, Modifier.size(150.dp), stroke = 30.dp,
-                    track = Color(0xFFEDE7DB)) {
+                Donut(slices.map { it.second to it.third }, Modifier.size(150.dp), stroke = 30.dp, track = Color(0xFFEDE7DB)) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("${t.reels}", style = MaterialTheme.typography.headlineMedium); Text("reels", style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    shares.take(6).forEachIndexed { i, (label, v) ->
+                    slices.forEach { (label, v, color) ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(12.dp).clip(PillShape).background(sliceColors[i]))
+                            Box(Modifier.size(12.dp).clip(PillShape).background(color))
                             Spacer(Modifier.width(6.dp))
-                            Text(BuiltInLabel.entries.firstOrNull { it.key == label }?.displayName ?: label,
-                                style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(80.dp))
-                            Text("${(v * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
+                            Text(labelName(label), style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(92.dp))
+                            Text(if (v < 0.01f) "<1%" else "${(v * 100).toInt()}%", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }

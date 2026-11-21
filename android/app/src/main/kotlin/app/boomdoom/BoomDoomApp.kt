@@ -23,7 +23,6 @@ class BoomDoomApp : Application(), Configuration.Provider {
     @Inject lateinit var learning: LearningRepository
     @Inject lateinit var tracking: TrackingRepository
     @Inject lateinit var auth: AuthStore
-    @Inject lateinit var models: app.boomdoom.core.data.ModelFiles
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -38,7 +37,9 @@ class BoomDoomApp : Application(), Configuration.Provider {
             if (settings.current().onboardingDone) {
                 LessonSyncScheduler.schedulePeriodic(this@BoomDoomApp)
                 LessonSyncScheduler.syncNow(this@BoomDoomApp)
-                if (!models.installed()) app.boomdoom.core.network.ModelDownloadWorker.start(this@BoomDoomApp)
+                // Also picks up newer published models: the worker exits early when the version matches, and
+                // only re-downloads files whose SHA-256 changed (Wi-Fi only).
+                app.boomdoom.core.network.ModelDownloadWorker.start(this@BoomDoomApp)
             }
         }
     }

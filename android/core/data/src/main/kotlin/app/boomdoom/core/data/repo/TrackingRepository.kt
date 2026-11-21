@@ -35,14 +35,40 @@ data class TodayStats(
     val peakHour: Int? = null,
     val demo: Boolean = false,
 ) {
-    /** Share of recognised content (excludes "other"), as in Tech Spec §6.3. */
+    private val categories get() = labelCounts.filter { it.label != OTHER && it.label != UNANALYSED }
+    private val counted: Int get() = labelCounts.sumOf { it.count }
+
+    /** Reels that got a category (not Other, not unanalysed). */
+    val recognisedCount: Int get() = categories.sumOf { it.count }
+    val unanalysedCount: Int get() = labelCounts.firstOrNull { it.label == UNANALYSED }?.count ?: 0
+    val otherCount: Int get() = labelCounts.firstOrNull { it.label == OTHER }?.count ?: 0
+
+    /** Category shares among recognised reels only (Tech Spec §6.3). Use only when [enoughRecognised]. */
     val recognised: List<Pair<String, Float>>
         get() {
-            val known = labelCounts.filter { it.label != "other" }
-            val total = known.sumOf { it.count }.toFloat()
-            return if (total == 0f) emptyList() else known.map { it.label to it.count / total }
+            val total = recognisedCount.toFloat()
+            return if (total == 0f) emptyList() else categories.map { it.label to it.count / total }
+        }
+
+    /** A share of 1 recognised reel is not a pattern: one News reel out of 70 once showed as "News 100%". */
+    val enoughRecognised: Boolean get() = recognisedCount >= MIN_RECOGNISED
+
+    /** Slices over all of today's reels: categories (largest first), then Other, then not analysed. */
+    val breakdown: List<Pair<String, Float>>
+        get() {
+            val total = counted.toFloat()
+            if (total == 0f) return emptyList()
+            return (categories.map { it.label to it.count } + listOf(OTHER to otherCount, UNANALYSED to unanalysedCount))
+                .filter { it.second > 0 }.map { it.first to it.second / total }
         }
     val hasTracking: Boolean get() = reels > 0
+
+    companion object {
+        const val OTHER = "other"
+        /** Counted before screen understanding was on, or while the classifier was busy. Never shown as a category. */
+        const val UNANALYSED = "unanalysed"
+        const val MIN_RECOGNISED = 5
+    }
 }
 
 @Singleton
@@ -51,6 +77,8 @@ class TrackingRepository @Inject constructor(
     private val settings: SettingsRepository,
 ) {
     private val dao = db.tracking()
+
+    private companion object { const val SESSION_MIN_RECOGNISED = 3 }
 
     fun dayKey(s: UserSettings, at: Long = System.currentTimeMillis()): String =
         DayKey.of(Instant.ofEpochMilli(at), ZoneId.systemDefault(), s.resetTime)
@@ -126,11 +154,12 @@ class TrackingRepository @Inject constructor(
         true
     }
 
-    /** Category shares for one session (check-in card breakdown); "other" excluded. */
+    /** Category shares for one session (check-in card breakdown); Other and unanalysed reels excluded, and
+     *  empty until at least [SESSION_MIN_RECOGNISED] reels were recognised. */
     suspend fun sessionBreakdown(sessionId: String): List<Pair<String, Float>> {
-        val counts = dao.sessionLabelCounts(sessionId).filter { it.label != "other" }
-        val total = counts.sumOf { it.count }.toFloat()
-        return if (total == 0f) emptyList() else counts.map { it.label to it.count / total }
+        val counts = dao.sessionLabelCounts(sessionId).filter { it.label != TodayStats.OTHER && it.label != TodayStats.UNANALYSED }
+        val total = counts.sumOf { it.count }
+        return if (total < SESSION_MIN_RECOGNISED) emptyList() else counts.map { it.label to it.count / total.toFloat() }
     }
 
     suspend fun endSession(sessionId: String, at: Long, reason: String) {

@@ -130,7 +130,7 @@ def main():
     metadata = {"labels": list(labels), "other_threshold": THRESHOLDS["other_threshold"]}
     if args.stage == "vision":
         model = VisionScores(models)
-        metadata["labels"].append("talking_head")
+        metadata["labels"] += ["talking_head", "background"]  # graph groups; calibration happens in the app
         pixels = torch.linspace(-1, 1, 3 * 224 * 224).reshape(1, 3, 224, 224)
         export(model, (pixels,), ["pixels"], args.output / "vision.onnx", ["MatMul", "Gemm"])
     else:

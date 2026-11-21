@@ -1,5 +1,7 @@
 package app.boomdoom.feature.home
 
+import app.boomdoom.core.data.repo.TodayStats
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -115,7 +117,7 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
 
             if (!t.hasTracking) EmptyInsight()
             ui.next?.let { LessonCard(it) { onOpenLesson(it.id) } } ?: NoLessonCard(onOpenLearn)
-            if (t.hasTracking) InsightCard(t.recognised, t.reels, t.sessions)
+            if (t.hasTracking) InsightCard(t)
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -270,26 +272,36 @@ private fun EmptyInsight() {
 private val sliceColors = listOf(Color(0xFFFF7A6B), Color(0xFFB4A8F5), Color(0xFF8EE3D2), BoomColors.Warning, Color(0xFF9CC9FF))
 
 @Composable
-private fun InsightCard(recognised: List<Pair<String, Float>>, reels: Int, sessions: Int) {
+private fun InsightCard(t: TodayStats) {
     BoomCard(Modifier.fillMaxWidth()) {
         Text("📊  Today's insight", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(10.dp))
-        if (recognised.isEmpty()) {
+        val top = t.breakdown.firstOrNull { it.first != TodayStats.OTHER && it.first != TodayStats.UNANALYSED }
+        if (!t.enoughRecognised || top == null) {
             // Never fabricate categories (US-15/US-24): say what we actually know.
-            Text("$reels reels across $sessions ${if (sessions == 1) "session" else "sessions"} today.",
+            Text("${t.reels} reels across ${t.sessions} ${if (t.sessions == 1) "session" else "sessions"} today.",
                 style = MaterialTheme.typography.titleLarge)
-            Secondary("Content categories appear once screen understanding is available.", align = TextAlign.Start)
+            Secondary(
+                when {
+                    t.recognisedCount > 0 -> "Recognised ${t.recognisedCount} of ${t.reels} so far: too few to show a pattern yet."
+                    t.unanalysedCount < t.reels -> "Nothing recognised yet: the reels so far didn't match a category."
+                    else -> "Content categories appear once screen understanding is on."
+                },
+                align = TextAlign.Start,
+            )
         } else {
-            val (top, share) = recognised.first()
-            val name = BuiltInLabel.entries.firstOrNull { it.key == top }?.displayName ?: top.replaceFirstChar { it.uppercase() }
+            // Share of ALL today's reels, so a few recognised reels never read as "100% of your feed".
+            val (label, share) = top
+            val name = BuiltInLabel.entries.firstOrNull { it.key == label }?.displayName ?: label.replaceFirstChar { it.uppercase() }
+            val pct = (share * 100).toInt().coerceAtLeast(1)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Donut(recognised.take(5).mapIndexed { i, (_, v) -> v to sliceColors[i] }, Modifier.size(96.dp), stroke = 16.dp) {
-                    Text("${(share * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
+                Donut(listOf(share to sliceColors[0]), Modifier.size(96.dp), stroke = 16.dp) {
+                    Text("$pct%", style = MaterialTheme.typography.titleMedium)
                 }
                 Spacer(Modifier.width(16.dp))
                 Text(buildAnnotatedString {
                     withStyle(SpanStyle(color = BoomColors.Boom)) { append(name) }
-                    append(" was ${(share * 100).toInt()}% of your feed.")
+                    append(" was $pct% of your feed.")
                 }, style = MaterialTheme.typography.titleLarge)
             }
         }
