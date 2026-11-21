@@ -50,8 +50,10 @@ class ReelAnalyzer @Inject constructor(
         .asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     private val pending = AtomicInteger(0)
-    private val captions = HashMap<String, CompletableDeferred<String?>>()
+    private class CaptionRead(val text: String?, val sponsored: Boolean)
+    private val captions = HashMap<String, CompletableDeferred<CaptionRead>>()
     private val fusion = Fusion()
+    private val debug = MlDebugDump(models.dir.parentFile!!)
 
     private var caption: CaptionClassifier? = null
     private var vision: FrameClassifier? = null
@@ -68,20 +70,21 @@ class ReelAnalyzer @Inject constructor(
     }
 
     /** The watcher's caption text for [reelId] (or null when none is exposed). Memory only. */
-    fun offerCaption(reelId: String, text: String?) {
-        synchronized(captions) { captions[reelId] }?.complete(text?.takeIf { it.isNotBlank() })
+    fun offerCaption(reelId: String, text: String?, sponsored: Boolean = false) {
+        synchronized(captions) { captions[reelId] }?.complete(CaptionRead(text?.takeIf { it.isNotBlank() }, sponsored))
     }
 
     fun analyze(reelId: String, transitionAt: Long, flagged: Set<String>, customLabels: List<String>,
                 onResult: suspend (Result) -> Unit) {
         if (!available) return
         if (pending.incrementAndGet() > MAX_PENDING) { pending.decrementAndGet(); return }
-        val captionSlot = CompletableDeferred<String?>().also { synchronized(captions) { captions[reelId] = it } }
+        val captionSlot = CompletableDeferred<CaptionRead>().also { synchronized(captions) { captions[reelId] = it } }
         scope.launch {
             try {
                 val start = System.currentTimeMillis()
                 ensureLoaded(customLabels)
-                val result = classify(captionSlot, transitionAt, flagged) ?: return@launch
+                val result = classify(reelId, captionSlot, transitionAt, flagged) ?: return@launch
+                if (debug.enabled && !debug.hasFrame(reelId)) debugFrame(reelId, transitionAt) // collector: every reel
                 val saved = tracking.classifyReel(reelId, result.primaryLabel, result.confidence, result.secondaryLabels,
                     result.signals.fold(0) { m, s -> m or s.bit }, result.showFlagTag)
                 if (saved) onResult(Result(reelId, result, System.currentTimeMillis() - start))
@@ -94,19 +97,26 @@ class ReelAnalyzer @Inject constructor(
         }
     }
 
-    private suspend fun classify(captionSlot: CompletableDeferred<String?>, transitionAt: Long, flagged: Set<String>): ClassifiedReel? {
+    private suspend fun classify(reelId: String, captionSlot: CompletableDeferred<CaptionRead>, transitionAt: Long,
+                                 flagged: Set<String>): ClassifiedReel? {
         val scores = LinkedHashMap<Signal, Map<String, Double>>()
-        val text = withTimeoutOrNull(CAPTION_WAIT_MS) { captionSlot.await() }
+        val read = withTimeoutOrNull(CAPTION_WAIT_MS) { captionSlot.await() }
+        val text = read?.text
+        if (read?.sponsored == true) {
+            // Instagram's own "Ad"/"Sponsored" marker is exact: no model needed. Recorded as a caption-signal result.
+            scores[Signal.CAPTION] = mapOf(BuiltInAds to SPONSORED_SCORE)
+            return fusion.classify(scores, flagged).also { debug.record(reelId, "[sponsored] " + text.orEmpty(), scores, it) }
+        }
         if (text != null) caption?.score(text)?.takeIf { it.isNotEmpty() }?.let { scores[Signal.CAPTION] = it }
 
         val ranked = scores[Signal.CAPTION]?.values?.sortedDescending().orEmpty()
         val decisive = ranked.isNotEmpty() && ranked[0] >= CAPTION_EXIT && ranked[0] - (ranked.getOrNull(1) ?: 0.0) >= CAPTION_MARGIN
-        if (!decisive) frameScores(transitionAt)?.let { scores[Signal.FRAMES] = it }
+        if (!decisive) frameScores(reelId, transitionAt)?.let { scores[Signal.FRAMES] = it }
         if (scores.isEmpty()) return null // nothing to go on: keep the placeholder
-        return fusion.classify(scores, flagged)
+        return fusion.classify(scores, flagged).also { debug.record(reelId, text, scores, it) }
     }
 
-    private suspend fun frameScores(transitionAt: Long): Map<String, Double>? {
+    private suspend fun frameScores(reelId: String, transitionAt: Long): Map<String, Double>? {
         val capture = hub.capture ?: return null
         val vision = vision ?: return null
         val wait = transitionAt + FIRST_FRAME_MS - System.currentTimeMillis()
@@ -119,6 +129,7 @@ class ReelAnalyzer @Inject constructor(
                     val usable = !isBlank(thumb) && (lastThumb == null || meanDiff(thumb, lastThumb!!) >= SAME_FRAME_DIFF)
                     if (usable) {
                         lastThumb = thumb
+                        debug.frame(reelId, frame)
                         return vision.score(frame)
                     }
                 } finally {
@@ -128,6 +139,13 @@ class ReelAnalyzer @Inject constructor(
             if (attempt == 0) delay(RETRY_MS) // stale or blank: the new reel may not be drawn yet
         }
         return null
+    }
+
+    /** Collect mode only: a frame for reels that finished without one (sponsored or decisive caption). */
+    private suspend fun debugFrame(reelId: String, transitionAt: Long) {
+        val wait = transitionAt + DEBUG_FRAME_MS - System.currentTimeMillis()
+        if (wait > 0) delay(wait)
+        hub.capture?.grab()?.let { f -> try { debug.frame(reelId, f) } finally { f.recycle() } }
     }
 
     private fun ensureLoaded(customLabels: List<String>) {
@@ -166,5 +184,8 @@ class ReelAnalyzer @Inject constructor(
         private const val RETRY_MS = 600L
         private const val BLANK_RANGE = 6
         private const val SAME_FRAME_DIFF = 6
+        private const val DEBUG_FRAME_MS = 1200L
+        private const val BuiltInAds = "ads"
+        private const val SPONSORED_SCORE = 0.95
     }
 }

@@ -33,8 +33,10 @@ class FrameClassifier(dir: File, threads: Int = 4) : Closeable {
     private val env = OrtEnvironment.getEnvironment()
     private val session = env.createSession(File(dir, "vision.onnx").absolutePath,
         OrtSession.SessionOptions().apply { setIntraOpNumThreads(threads) })
-    val labels: List<String> = JSONObject(File(dir, "vision.json").readText()).getJSONArray("labels")
-        .let { a -> List(a.length()) { a.getString(it) } }
+    private val meta = JSONObject(File(dir, "vision.json").readText())
+    val labels: List<String> = meta.getJSONArray("labels").let { a -> List(a.length()) { a.getString(it) } }
+    /** A trained head (ml/train_head.py) already outputs class probabilities (incl. "other"): no calibration. */
+    private val trained = meta.optBoolean("calibrated", false)
 
     fun score(frame: Bitmap): Map<String, Double> {
         val data = pixels(frame)
@@ -42,7 +44,8 @@ class FrameClassifier(dir: File, threads: Int = 4) : Closeable {
             session.run(mapOf("pixels" to input)).use { result ->
                 @Suppress("UNCHECKED_CAST")
                 val row = (result[0].value as Array<FloatArray>)[0]
-                return calibrate(labels.indices.associate { labels[it] to row[it].toDouble() })
+                val raw = labels.indices.associate { labels[it] to row[it].toDouble() }
+                return if (trained) raw - "other" else calibrate(raw)
             }
         }
     }

@@ -44,4 +44,13 @@ class FusionTest {
         assertEquals("comedy", r.primaryLabel)
         assertEquals(listOf("cricket"), r.secondaryLabels)
     }
+
+    @Test fun uninformativeCaptionDoesNotDiluteAClearFrame() {
+        val r = Fusion().classify(mapOf(
+            app.boomdoom.core.model.Signal.FRAMES to mapOf("comedy" to 0.6),
+            app.boomdoom.core.model.Signal.CAPTION to mapOf("comedy" to 0.03, "news" to 0.05),
+        ), emptySet())
+        org.junit.Assert.assertEquals("comedy", r.primaryLabel)
+        org.junit.Assert.assertEquals(0.6f, r.confidence, 1e-6f)
+    }
 }

@@ -34,7 +34,7 @@ class ScreenCapture(projection: MediaProjection, metrics: DisplayMetrics) {
         val scale = SHORT_SIDE.toFloat() / shortSide
         width = (metrics.widthPixels * scale).toInt() and 1.inv()
         height = (metrics.heightPixels * scale).toInt() and 1.inv()
-        reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
         reader.setOnImageAvailableListener({ r ->
             val img = runCatching { r.acquireLatestImage() }.getOrNull() ?: return@setOnImageAvailableListener
             synchronized(lock) { latest?.close(); latest = img; lastFrameAt = System.currentTimeMillis() }

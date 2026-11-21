@@ -16,6 +16,8 @@ data class FusionConfig(
     val speechTrigger: Double = 0.55,
     val secondaryThreshold: Double = 0.60,
     val maxSecondary: Int = 2,
+    /** Caption/OCR/speech whose best label is below this say nothing; they are left out of the average. */
+    val minInformative: Double = 0.20,
 )
 
 /** Per-signal probabilities: signal -> (label key -> probability). */
@@ -26,8 +28,13 @@ class Fusion(private val cfg: FusionConfig = FusionConfig()) {
     fun isTalkingHead(scores: SignalScores): Boolean =
         (scores[Signal.FRAMES]?.get(BuiltInLabel.TALKING_HEAD) ?: 0.0) >= cfg.talkingHeadThreshold
 
-    /** Tech Spec §5.6: weighted average over present signals, renormalised. */
-    fun combine(scores: SignalScores): Map<String, Double> {
+    /** Tech Spec §5.6: weighted average over present signals, renormalised. Frames always count; a text or
+     *  speech signal whose top score is under [FusionConfig.minInformative] is dropped (a meme caption like
+     *  "Mat kr yrr" scores ~0.05 everywhere and would otherwise pull a clear frame below the Other threshold). */
+    fun combine(all: SignalScores): Map<String, Double> {
+        val scores = all.filter { (s, p) ->
+            s == Signal.FRAMES || (p.filterKeys { it != BuiltInLabel.TALKING_HEAD }.values.maxOrNull() ?: 0.0) >= cfg.minInformative
+        }.ifEmpty { all }
         val weights = scores.keys.associateWith { s ->
             if (s == Signal.FRAMES && isTalkingHead(scores)) cfg.talkingHeadFrameWeight else cfg.weights.getValue(s)
         }

@@ -166,7 +166,7 @@ class MonitorController @Inject constructor(
             is WatcherEvent.ReelTransition -> { reelsVisible = true; Input.ReelTransition(e.at) }
             is WatcherEvent.ScreenOff -> Input.ScreenOff(e.at)
             is WatcherEvent.Tick -> Input.Tick(e.at)
-            is WatcherEvent.CaptionRead -> { currentReelId?.let { analyzer.offerCaption(it, e.text) }; return }
+            is WatcherEvent.CaptionRead -> { currentReelId?.let { analyzer.offerCaption(it, e.text, e.sponsored) }; return }
         }
         val effects = eng.handle(input)
         if (e is WatcherEvent.ReelTransition) recordReel(e.at)
@@ -201,8 +201,10 @@ class MonitorController @Inject constructor(
                 sessionId = tracking.startSession(INSTAGRAM, fx.at, sessionDay!!)
             }
             is Effect.BarUpdated -> if (reelsVisible && !lessonShowing) overlays.showBar(fx.todayReels, fx.budget)
-            is Effect.ShowCheckIn -> showCheckIn(fx.sessionReels)
-            is Effect.ShowBudgetCard -> showBudget(fx.todayReels)
+            // Dev data collection (ml/collect_reels.py): keep counting and classifying, but no check-ins, budget
+            // cards or lessons, which would take the screen away from Instagram mid-run.
+            is Effect.ShowCheckIn -> if (collecting()) answer(CheckInAction.CONTINUE) else showCheckIn(fx.sessionReels)
+            is Effect.ShowBudgetCard -> if (!collecting()) showBudget(fx.todayReels)
             is Effect.SessionEnded -> {
                 sessionId?.let { tracking.endSession(it, fx.at, fx.reason.name.lowercase()) }
                 sessionId = null
@@ -211,6 +213,9 @@ class MonitorController @Inject constructor(
             }
         }
     }
+
+    /** Debug builds only: the marker can only be created with `adb run-as` (see MlDebugDump). */
+    private fun collecting() = java.io.File(ctx.filesDir, "ml_debug").exists()
 
     private suspend fun endSession(at: Long, reason: SessionEngine.EndReason) {
         val sid = sessionId ?: return

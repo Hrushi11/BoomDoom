@@ -139,41 +139,73 @@ class ReelWatcherService : AccessibilityService() {
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val readCaption = Runnable {
-        val text = runCatching { rootInActiveWindow?.let(::captionText) }.getOrNull()
-        controller.submit(WatcherEvent.CaptionRead(System.currentTimeMillis(), text.orEmpty()))
+        val read = runCatching { rootInActiveWindow?.let(::captionText) }.getOrNull()
+        controller.submit(WatcherEvent.CaptionRead(System.currentTimeMillis(), read?.first.orEmpty(), read?.second == true))
     }
 
     /**
-     * Heuristic caption extraction until spike S1 pins Instagram's caption view ids: visible texts that read
-     * like prose (>= 12 chars with letters), excluding counters and UI labels; longest first, at most 3.
+     * Caption extraction. Instagram (Nov 2026, Pixel 9) exposes the reel caption only as the content description
+     * of an unnamed ViewGroup directly below the author row (`clips_author_username`), truncated with "…". Text
+     * fields on the Reels screen are counters ("Reshare number is 270") and must never be read as a caption.
+     * Anchored path first; if the author row is not found, fall back to prose-like texts minus UI labels.
+     * Also reports Instagram's own sponsored marker. Memory only.
      */
-    private fun captionText(root: AccessibilityNodeInfo): String {
-        val texts = ArrayList<String>()
+    private fun captionText(root: AccessibilityNodeInfo): Pair<String, Boolean> {
         val screen = Rect(0, 0, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+        val authorBottom = root.findAccessibilityNodeInfosByViewId(AUTHOR_ID).firstOrNull { it.isVisibleToUser }
+            ?.let { Rect().also(it::getBoundsInScreen).bottom }
+        val anchored = ArrayList<String>()
+        val loose = ArrayList<String>()
+        var sponsored = false
         fun walk(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 40 || texts.size > 60) return
-            val t = node.text?.toString()?.trim()
-            if (!t.isNullOrEmpty() && node.isVisibleToUser && looksLikeCaption(t)) {
-                val r = Rect().also { node.getBoundsInScreen(it) }
-                if (Rect.intersects(r, screen)) texts += t
+            if (depth > 40 || loose.size > 60) return
+            if (node.isVisibleToUser) {
+                val t = node.text?.toString()?.trim()
+                val d = node.contentDescription?.toString()?.trim()
+                if (!sponsored && (isSponsorMarker(t) || isSponsorMarker(d))) sponsored = true
+                val r = Rect().also(node::getBoundsInScreen)
+                if (Rect.intersects(r, screen)) {
+                    val cls = node.className?.toString().orEmpty()
+                    if (authorBottom != null && node.viewIdResourceName == null && cls.endsWith("ViewGroup") &&
+                        r.top >= authorBottom && !d.isNullOrEmpty() && looksLikeCaption(d)) anchored += clean(d)
+                    if (!t.isNullOrEmpty() && looksLikeCaption(t)) loose += clean(t)
+                }
             }
             for (i in 0 until node.childCount) node.getChild(i)?.let { walk(it, depth + 1) }
         }
         walk(root, 0)
-        return texts.distinct().sortedByDescending { it.length }.take(3).joinToString(". ").take(600)
+        val picked = anchored.ifEmpty { loose }
+        return picked.distinct().sortedByDescending { it.length }.take(3).joinToString(". ").take(600) to sponsored
     }
+
+    private fun clean(t: String) = t.removeSuffix("more").trimEnd().removeSuffix("…").removeSuffix("...").trim()
 
     private fun looksLikeCaption(t: String): Boolean {
         if (t.length < 12) return false
         if (t.count { it.isLetter() } < 6) return false
         val lower = t.lowercase()
+        if (UI_PATTERNS.any { it.containsMatchIn(lower) }) return false
         return UI_TEXT.none { lower == it || lower.startsWith("$it ") }
     }
+
+    /** Instagram labels paid reels itself ("Ad" under the username, "Sponsored", "Paid partnership"). */
+    private fun isSponsorMarker(t: String?): Boolean {
+        if (t.isNullOrEmpty() || t.length > 40) return false
+        val lower = t.lowercase()
+        return lower == "ad" || lower == "sponsored" || lower.startsWith("paid partnership")
+    }
+
 
     override fun onInterrupt() = Unit
 
     companion object {
         private const val CAPTION_DELAY_MS = 400L
+        private const val AUTHOR_ID = "com.instagram.android:id/clips_author_username"
+        /** Instagram's screen-reader labels for counters and controls on the Reels screen. */
+        private val UI_PATTERNS = listOf(
+            Regex("""\b(number is|reposted \d+|view likes|view comments|double tap to play|profile picture of)\b"""),
+            Regex("""^reel by """),
+        )
         private val UI_TEXT = setOf("follow", "following", "like", "comment", "share", "send", "reels", "original audio",
             "suggested for you", "add comment", "view all comments", "liked by", "remix", "use template")
 
@@ -192,5 +224,6 @@ sealed interface WatcherEvent {
     data class ReelTransition(override val at: Long) : WatcherEvent
     data class ScreenOff(override val at: Long) : WatcherEvent
     data class Tick(override val at: Long) : WatcherEvent
-    data class CaptionRead(override val at: Long, val text: String) : WatcherEvent // memory only, never stored
+    /** Caption text (memory only, never stored) and whether Instagram marked the reel as sponsored. */
+    data class CaptionRead(override val at: Long, val text: String, val sponsored: Boolean = false) : WatcherEvent
 }
