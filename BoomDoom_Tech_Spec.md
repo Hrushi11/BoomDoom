@@ -128,9 +128,10 @@ This document describes **how** BoomDoom is built end to end: the Android app, o
 :core:data                Repositories, Room DB, DataStore, network client
 :core:model               Shared data classes (Reel, Session, Label, Lesson, ...)
 :core:common              Time/day-boundary utils, dispatchers, result types
+:core:player              Shared lesson playback, segmented progress, interactions and reporting
 :monitor                  ReelWatcher (accessibility), SessionEngine, MonitorService (FGS),
                           FrameSampler, AudioSnipper, capability checks
-:overlay                  OverlayManager, budget bar, flag tag, check-in & budget cards
+:overlay                  OverlayManager, budget bar, flag tag, intervention cards and in-feed lesson player
 :ml:vision                SigLIP 2 runtime, frame pre-processing, talking-head detector
 :ml:text                  EmbeddingGemma runtime, text classifier, OCR wrapper (ML Kit)
 :ml:speech                Speech-to-text runtime (Shruti / lipi-hn), audio pre-processing
@@ -151,7 +152,7 @@ This document describes **how** BoomDoom is built end to end: the Android app, o
 
 ### 3.3 Navigation
 
-Single-activity app with Compose Navigation. Top-level destinations: `home`, `learn`, `insights`, `you`. Full-screen destinations (bottom bar hidden): `onboarding/*`, `player/{lessonId}`, `topic/add`, `settings/*`. Deep links: `boomdoom://player/{lessonId}` (notifications, overlay "Switch to lesson"), `boomdoom://fix-setup/{capability}` (US-32).
+Single-activity app with Compose Navigation. Top-level destinations: `home`, `learn`, `insights`, `you`. Full-screen destinations (bottom bar hidden): `onboarding/*`, `player/{lessonId}`, `topic/add`, `settings/*`. Deep links: `boomdoom://player/{lessonId}` (notifications), `boomdoom://fix-setup/{capability}` (US-32).
 
 ### 3.4 Process and services
 
@@ -251,12 +252,14 @@ All overlays use `WindowManager` with `TYPE_APPLICATION_OVERLAY` and a `ComposeV
 | Speech label (US-13A) | Not touchable | Bottom-third chip | Demo moment; auto-hides after 4 s |
 | Check-in card (US-15) | Touchable, focusable, dim behind | Centred card | Actions: Switch / Continue / Done / Snooze |
 | Budget card (US-16) | Touchable, focusable, dim behind | Centred card | Actions: Lesson / Keep scrolling / Finish |
-| In-feed lesson card (P1) | Touchable, full-screen opaque | Full screen | Swipe-up dismiss returns to the reels app |
+| In-feed lesson player | Touchable, focusable, opaque | Full screen | Swipe up, Close, or Android Back dismisses the overlay |
 
 - Opaque full-screen overlays are used for interactive cards so touches never "pass through" to the app underneath.
-- **Switch to lesson** launches `boomdoom://player/{lessonId}` (apps holding the overlay permission may start activities from the background).
+- **Switch to lesson** and the budget card's lesson action play a cached or available lesson in the overlay. The Reels session stays open and Instagram scroll events are ignored while the player is visible.
+- **Nudge for learning content** is stored in DataStore and defaults to on. With it off, check-in and budget milestones open an available lesson directly. If there is no playable lesson, the feed continues with the budget bar.
+- **Back to my reels** (US-21) closes the overlay and restores the budget bar over the current Instagram screen. Leaving Reels, locking the screen, or pausing monitoring also dismisses playback.
+- On Android 15 and later, the overlay uses a foreground playback service to request transient audio focus. The service and audio focus are released when the overlay closes.
 - **Done for now** sends the user to the launcher (`Intent.ACTION_MAIN` + `CATEGORY_HOME`) and ends the session.
-- **Back to my reels** (US-21) launches the reels app's launch intent; exact reel restoration is not guaranteed.
 
 ### 4.4 FrameSampler (MediaProjection)
 

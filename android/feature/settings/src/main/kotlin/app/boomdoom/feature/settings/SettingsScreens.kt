@@ -56,6 +56,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -125,7 +127,7 @@ private fun ToggleRow(title: String, body: String, checked: Boolean, enabled: Bo
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(body, style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
             }
-            Switch(checked, onChange, enabled = enabled,
+            Switch(checked, onChange, modifier = Modifier.semantics { contentDescription = title }, enabled = enabled,
                 colors = SwitchDefaults.colors(checkedTrackColor = BoomColors.LearnDeep, checkedThumbColor = Color.White))
         }
     }
@@ -151,6 +153,14 @@ fun YouScreen(onOpen: (SettingsPage) -> Unit, onOpenTopics: () -> Unit, vm: Sett
         MenuRow(Icons.Filled.TrackChanges, Color(0xFFE5484D), "Scrolling goals") { onOpen(SettingsPage.GOALS) }
         MenuRow(Icons.Filled.Flag, Color(0xFFFF7A6B), "Content & flags") { onOpen(SettingsPage.FLAGS) }
         MenuRow(Icons.Filled.MenuBook, BoomColors.LearnDeep, "Learning preferences", onOpenTopics)
+        s?.let { settings ->
+            ToggleRow(
+                title = "Nudge for learning content",
+                body = "Ask before playing a lesson over Reels. Turn off to play it automatically.",
+                checked = settings.learningNudgeEnabled,
+                onChange = { vm.setLearningNudgeEnabled(it) },
+            )
+        }
         MenuRow(Icons.Filled.Security, Color(0xFF8A7CE0), "Privacy & data") { onOpen(SettingsPage.PRIVACY) }
         MenuRow(Icons.Filled.Layers, Color(0xFF4A90D9), "Permissions") { onOpen(SettingsPage.PERMISSIONS) }
         MenuRow(Icons.Filled.Info, BoomColors.LearnDeep, "About") { onOpen(SettingsPage.ABOUT) }
@@ -399,7 +409,7 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(
         PermissionCard("Accessibility", "Counts reels as you scroll. Required for tracking.", m.accessibilityEnabled()) {
             ctx.startActivity(m.accessibilitySettingsIntent())
         }
-        PermissionCard("Display over apps", "Shows your budget bar and check-ins over Instagram.", m.overlayAllowed()) {
+        PermissionCard("Display over apps", "Shows your budget bar, check-ins, and lessons over Instagram.", m.overlayAllowed()) {
             ctx.startActivity(m.overlaySettingsIntent())
         }
         PermissionCard("Notifications", "Tells you when new lessons are ready.", m.notificationsAllowed()) {

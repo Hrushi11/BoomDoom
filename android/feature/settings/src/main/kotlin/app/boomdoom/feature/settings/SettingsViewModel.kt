@@ -29,6 +29,7 @@ class SettingsViewModel @Inject constructor(
                  resetHour: Int? = null, resetMinute: Int? = null) =
         viewModelScope.launch { repo.setGoals(budget, checkIn, backoff, overBudget, resetHour, resetMinute) }
     fun setPaused(p: Boolean) = viewModelScope.launch { repo.setMonitoringPaused(p) }
+    fun setLearningNudgeEnabled(enabled: Boolean) = viewModelScope.launch { repo.setLearningNudgeEnabled(enabled) }
     fun toggleFlag(key: String) = viewModelScope.launch {
         val cur = repo.current().flaggedLabels
         repo.setFlagged(if (key in cur) cur - key else cur + key)

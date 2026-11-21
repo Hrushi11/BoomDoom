@@ -877,9 +877,9 @@ As a user, I want a useful reminder after a configurable number of reels, so tha
 
 1. Aarav taps **Switch to Lesson**.
 2. The intervention closes.
-3. BoomDoom opens its lesson player.
+3. BoomDoom opens its vertical lesson player over the current Instagram screen.
 4. A cached lesson starts.
-5. The user enters the learning experience.
+5. The current scrolling session stays open while the lesson plays.
 
 ### User Action B — Continue Scrolling
 
@@ -908,7 +908,7 @@ As a user, I want a useful reminder after a configurable number of reels, so tha
 - Target appearance latency: within one second of detecting the milestone reel.
 - The card must provide all three actions and the **Snooze for this session** link.
 - Check-in timing must follow the back-off and snooze rules in US-03.
-- The user must never be forced into a lesson.
+- By default, the user chooses whether to start the lesson. Turning off **Nudge for learning content** in You starts available lessons at check-in and budget milestones. The user can dismiss the player at any time.
 - The intervention must not falsely present unavailable category analysis.
 - Repeated dismissal must not cause an immediate duplicate intervention.
 
@@ -1171,7 +1171,7 @@ As a user, I want to revisit the takeaways I've saved, so that I can refresh wha
 ## US-21: Return to Instagram After Learning
 
 **Priority:** P0  
-**Screen:** Lesson Completion / Application Switching
+**Screen:** In-Feed Lesson Player
 
 ### User Story
 
@@ -1181,17 +1181,16 @@ As a user, I want to return to my previous activity after completing a lesson, s
 
 1. Aarav opens a lesson from an Instagram scroll intervention.
 2. He completes the lesson.
-3. He taps **Back to Instagram**.
-4. BoomDoom attempts to return him to the previous Instagram context using permitted Android navigation behavior.
-5. Where restoring the exact screen is unavailable, BoomDoom provides a clear path to reopen Instagram.
-6. Monitoring continues only when the supported conditions and required permissions are active.
+3. He taps **Back to my reels**, swipes up on the player, or uses Android Back.
+4. The overlay closes and reveals the Instagram screen underneath it. The budget bar returns with the same reel count.
+5. Monitoring continues while the supported Reels screen and required permissions are active.
 
 ### Acceptance Criteria
 
 - Returning to Instagram must be straightforward.
 - BoomDoom must not falsely guarantee restoration of an exact reel.
 - The completed lesson must remain recorded.
-- The application must not create an extra or duplicated reel count merely because of app switching.
+- Lesson playback and dismissal must not add to the Instagram reel count or start a second scrolling session.
 - Android Back must behave predictably.
 
 ---
@@ -1465,6 +1464,7 @@ As a user, I want to change my scrolling budget, reminders, content labels, and 
 
 - Settings must reflect the current saved values.
 - Changes must persist across app restarts.
+- **Nudge for learning content** appears in You and defaults to on. Turning it off skips the check-in and budget cards and plays an available lesson directly. If no lesson is available, the user can keep scrolling.
 - Updated limits must not erase historical reel counts.
 - Preference updates must not require reinstalling the app.
 - Settings should be reachable through clear navigation.

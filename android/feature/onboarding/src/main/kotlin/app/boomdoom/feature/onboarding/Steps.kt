@@ -472,7 +472,7 @@ internal fun PermissionsStep(s: OnboardingState, vm: OnboardingViewModel, onDone
             vm.accessibilityRequested(); ctx.startActivity(vm.monitoring.accessibilitySettingsIntent())
         }
         if (!s.accessibility) TextLink("Toggle greyed out?", { guide = true })
-        PermissionRow(Icons.Filled.Layers, Color(0xFFC9C2F5), "Display over apps", "Show your budget bar.", s.overlay) {
+        PermissionRow(Icons.Filled.Layers, Color(0xFFC9C2F5), "Display over apps", "Show your budget, check-ins, and lessons.", s.overlay) {
             ctx.startActivity(vm.monitoring.overlaySettingsIntent())
         }
         if (Build.VERSION.SDK_INT >= 33) {

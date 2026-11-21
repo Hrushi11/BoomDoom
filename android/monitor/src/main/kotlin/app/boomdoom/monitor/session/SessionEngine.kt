@@ -88,7 +88,11 @@ class SessionEngine(
             state = State.ACTIVE
             listOf(Effect.SessionStarted(at), Effect.BarUpdated(todayReels, settings.budget))
         }
-        State.PAUSED -> { state = State.ACTIVE; pausedAt = null; emptyList() }
+        State.PAUSED -> {
+            state = State.ACTIVE
+            pausedAt = null
+            listOf(Effect.BarUpdated(todayReels, settings.budget))
+        }
         State.ACTIVE -> emptyList()
     }
 

@@ -17,7 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "BoomDoom"
 
 include(":app")
-include(":core:designsystem", ":core:data", ":core:network", ":core:model", ":core:common")
+include(":core:designsystem", ":core:data", ":core:network", ":core:model", ":core:common", ":core:player")
 include(":monitor", ":overlay")
 include(":ml:vision", ":ml:text", ":ml:speech", ":ml:fusion", ":ml:llm")
 include(":feature:onboarding", ":feature:home", ":feature:learn", ":feature:insights", ":feature:settings")

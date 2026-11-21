@@ -36,6 +36,7 @@ data class UserSettings(
     val monitoringPaused: Boolean = false,
     val demoMode: Boolean = false,
     val profileDirty: Boolean = true, // lesson profile changed since last sync
+    val learningNudgeEnabled: Boolean = true,
 ) {
     val resetTime: LocalTime get() = LocalTime.of(resetHour, resetMinute)
     val greetingName: String get() = displayName.ifBlank { "there" }
@@ -60,6 +61,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
         val paused = booleanPreferencesKey("monitoring_paused")
         val demo = booleanPreferencesKey("demo_mode")
         val profileDirty = booleanPreferencesKey("profile_dirty")
+        val learningNudge = booleanPreferencesKey("learning_nudge_enabled")
     }
 
     private fun Preferences.toSettings(): UserSettings {
@@ -81,6 +83,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
             monitoringPaused = this[K.paused] ?: d.monitoringPaused,
             demoMode = this[K.demo] ?: d.demoMode,
             profileDirty = this[K.profileDirty] ?: d.profileDirty,
+            learningNudgeEnabled = this[K.learningNudge] ?: d.learningNudgeEnabled,
         )
     }
 
@@ -112,6 +115,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val ctx
 
     suspend fun setAudioUnderstanding(on: Boolean) = ctx.store.edit { it[K.audio] = on }
     suspend fun setTopicSuggestions(on: Boolean) = ctx.store.edit { it[K.suggestions] = on }
+    suspend fun setLearningNudgeEnabled(enabled: Boolean) = ctx.store.edit { it[K.learningNudge] = enabled }
     suspend fun setMonitoringPaused(paused: Boolean) = ctx.store.edit { it[K.paused] = paused }
     suspend fun setDemoMode(on: Boolean) = ctx.store.edit { it[K.demo] = on }
 

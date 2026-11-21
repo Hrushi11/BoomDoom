@@ -162,8 +162,9 @@ Rendering uses **[Stickman Studio](https://github.com/atharv01h/Stickman-Studio)
 - When a flagged reel is detected (optional).
 - Directly, from the BoomDoom home screen.
 
-**F3.5 In-feed lesson card (P1: build after the MVP is done, if time allows)**
-- On Android, a full-screen overlay styled like a reel slides in right after a swipe inside Instagram, so the lesson feels like part of the feed. Swiping it away returns the user to Instagram.
+**F3.5 In-feed lesson player**
+- On Android, lessons play in a full-screen, BoomDoom-branded vertical video overlay over the current Instagram screen. **You → Nudge for learning content** is on by default and shows the check-in or budget card first. Turn it off to play an available lesson directly at those milestones.
+- Swipe up, tap Close, or use Android Back to dismiss the lesson and resume the same scrolling session. Lesson playback does not add to the Instagram reel count.
 - Nothing is inserted into Instagram itself; this is BoomDoom's own overlay.
 
 **Acceptance criteria**

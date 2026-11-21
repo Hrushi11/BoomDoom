@@ -2,8 +2,9 @@ package app.boomdoom.monitor
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.widget.Toast
 import app.boomdoom.core.data.repo.LearningRepository
+import app.boomdoom.core.data.repo.PlayableLesson
 import app.boomdoom.core.data.repo.TrackingRepository
 import app.boomdoom.core.data.settings.SettingsRepository
 import app.boomdoom.core.data.settings.UserSettings
@@ -43,7 +44,8 @@ class MonitorController @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val events = Channel<WatcherEvent>(Channel.UNLIMITED)
-    private val overlays by lazy { OverlayManager(ctx) }
+    private val overlays by lazy { OverlayManager(ctx, learning) }
+    internal val lessonShowing: Boolean get() = overlays.lessonShowing
 
     private var settings = UserSettings()
     private var engine: SessionEngine? = null
@@ -87,8 +89,9 @@ class MonitorController @Inject constructor(
         settings = s
         if (wasActive && !active(s)) {
             // US-10: pausing stops monitoring and removes overlays immediately
-            endSession(System.currentTimeMillis(), SessionEngine.EndReason.DONE)
+            reelsVisible = false
             overlays.hideAll()
+            endSession(System.currentTimeMillis(), SessionEngine.EndReason.DONE)
         }
         // Only goal changes rebuild the engine; unrelated settings (e.g. sync flags) must not reset
         // the session's back-off and snooze state.
@@ -117,13 +120,18 @@ class MonitorController @Inject constructor(
     }
 
     private suspend fun handle(e: WatcherEvent) {
+        if (e is WatcherEvent.ReelsHidden || e is WatcherEvent.ScreenOff) {
+            reelsVisible = false
+            overlays.hideAll()
+        }
         if (!active()) return
+        if (e is WatcherEvent.ReelTransition && lessonShowing) return
         val eng = engineFor(e.at)
         val input = when (e) {
             is WatcherEvent.ReelsVisible -> { reelsVisible = true; Input.ReelsVisible(e.at) }
-            is WatcherEvent.ReelsHidden -> { reelsVisible = false; overlays.hideBar(); Input.ReelsHidden(e.at) }
+            is WatcherEvent.ReelsHidden -> Input.ReelsHidden(e.at)
             is WatcherEvent.ReelTransition -> { reelsVisible = true; Input.ReelTransition(e.at) }
-            is WatcherEvent.ScreenOff -> { reelsVisible = false; overlays.hideAll(); Input.ScreenOff(e.at) }
+            is WatcherEvent.ScreenOff -> Input.ScreenOff(e.at)
             is WatcherEvent.Tick -> Input.Tick(e.at)
             is WatcherEvent.CaptionRead -> return
         }
@@ -147,7 +155,7 @@ class MonitorController @Inject constructor(
                 sessionDay = tracking.dayKey(settings, fx.at)
                 sessionId = tracking.startSession(INSTAGRAM, fx.at, sessionDay!!)
             }
-            is Effect.BarUpdated -> if (reelsVisible) overlays.showBar(fx.todayReels, fx.budget)
+            is Effect.BarUpdated -> if (reelsVisible && !lessonShowing) overlays.showBar(fx.todayReels, fx.budget)
             is Effect.ShowCheckIn -> showCheckIn(fx.sessionReels)
             is Effect.ShowBudgetCard -> showBudget(fx.todayReels)
             is Effect.SessionEnded -> {
@@ -165,31 +173,42 @@ class MonitorController @Inject constructor(
         engine = null
     }
 
-    private suspend fun suggestion(): Pair<String?, String?> {
-        val id = learning.nextLessonId() ?: return null to null
-        return id to learning.playable(id)?.topicName
+    private suspend fun suggestion(): PlayableLesson? = learning.nextLessonId()
+        ?.let { learning.playable(it) }?.takeIf { it.source != null }
+
+    private suspend fun showLearningIntervention(showCard: (PlayableLesson?) -> Unit) {
+        if (!active() || !reelsVisible || lessonShowing) return
+        val lesson = suggestion()
+        if (!active() || !reelsVisible || lessonShowing) return
+        if (settings.learningNudgeEnabled) {
+            showCard(lesson)
+        } else if (lesson != null) {
+            showLesson(lesson, requestedByUser = false)
+        }
     }
 
     private suspend fun showCheckIn(sessionReels: Int) {
-        if (overlays.cardShowing) return // never stack cards (US-15: no duplicate interventions)
-        val (lessonId, topic) = suggestion()
-        overlays.showCheckIn(
-            CheckInUi(sessionReels, breakdown = emptyList(), lessonTopic = topic),
-            onSwitch = { answer(CheckInAction.SWITCH_TO_LESSON); openLesson(lessonId) },
-            onContinue = { answer(CheckInAction.CONTINUE) },
-            onDone = { answer(CheckInAction.DONE_FOR_NOW); goHome() },
-            onSnooze = { answer(CheckInAction.SNOOZE) },
-        )
+        if (overlays.cardShowing) return
+        showLearningIntervention { lesson ->
+            overlays.showCheckIn(
+                CheckInUi(sessionReels, breakdown = emptyList(), lessonTopic = lesson?.topicName),
+                onSwitch = { if (lesson != null) showLesson(lesson, requestedByUser = true) },
+                onContinue = { answer(CheckInAction.CONTINUE) },
+                onDone = { answer(CheckInAction.DONE_FOR_NOW); goHome() },
+                onSnooze = { answer(CheckInAction.SNOOZE) },
+            )
+        }
     }
 
     private suspend fun showBudget(todayReels: Int) {
-        val (lessonId, topic) = suggestion()
-        overlays.showBudget(
-            todayReels, settings.budget, topic,
-            onLesson = { answer(CheckInAction.SWITCH_TO_LESSON); openLesson(lessonId) },
-            onKeep = { /* keep scrolling: over-budget interval applies from here */ },
-            onFinish = { answer(CheckInAction.DONE_FOR_NOW); goHome() },
-        )
+        showLearningIntervention { lesson ->
+            overlays.showBudget(
+                todayReels, settings.budget, lesson?.topicName,
+                onLesson = { if (lesson != null) showLesson(lesson, requestedByUser = true) },
+                onKeep = { /* keep scrolling: over-budget interval applies from here */ },
+                onFinish = { answer(CheckInAction.DONE_FOR_NOW); goHome() },
+            )
+        }
     }
 
     private fun answer(action: CheckInAction) {
@@ -199,11 +218,16 @@ class MonitorController @Inject constructor(
         }
     }
 
-    private fun openLesson(lessonId: String?) {
-        overlays.hideBar()
-        val uri = if (lessonId != null) "boomdoom://player/$lessonId?from=checkin" else "boomdoom://learn"
-        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).setPackage(ctx.packageName)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+    private fun showLesson(lesson: PlayableLesson, requestedByUser: Boolean) {
+        if (!active() || !reelsVisible || lessonShowing) return
+        val shown = overlays.showLesson(lesson) {
+            if (active() && reelsVisible) engine?.let { overlays.showBar(it.todayReels, settings.budget) }
+        }
+        if (shown) {
+            answer(CheckInAction.SWITCH_TO_LESSON)
+        } else if (requestedByUser) {
+            Toast.makeText(ctx, "Couldn't show the lesson over this screen.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun goHome() {

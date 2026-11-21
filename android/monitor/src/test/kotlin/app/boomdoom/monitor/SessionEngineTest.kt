@@ -72,8 +72,9 @@ class SessionEngineTest {
         e.handle(Input.ReelsVisible(0))
         e.swipe(5)
         e.handle(Input.ReelsHidden(t * 1000))
-        e.handle(Input.ReelsVisible(t * 1000 + 30_000))
+        val effects = e.handle(Input.ReelsVisible(t * 1000 + 30_000))
         assertEquals(State.ACTIVE, e.state)
         assertEquals(5, e.sessionReels)
+        assertEquals(listOf(Effect.BarUpdated(5, 300)), effects)
     }
 }

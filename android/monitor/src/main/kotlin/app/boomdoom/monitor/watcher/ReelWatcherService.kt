@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Rect
+import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import app.boomdoom.monitor.MonitorController
@@ -26,12 +27,15 @@ class ReelWatcherService : AccessibilityService() {
     private var pagerIds: List<String> = emptyList()
     private var classHints: List<String> = listOf("ViewPager", "RecyclerView")
     private var minHeightFraction = 0.8f
+    private var observedPager: AccessibilityNodeInfo? = null
     private var reelsVisible = false
     private var lastRootCheck = 0L
+    private val boomDoomActivity by lazy { packageManager.getLaunchIntentForPackage(packageName)?.component?.className }
 
     private val screenOff = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             reelsVisible = false
+            observedPager = null
             controller.submit(WatcherEvent.ScreenOff(System.currentTimeMillis()))
         }
     }
@@ -45,6 +49,8 @@ class ReelWatcherService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         runCatching { unregisterReceiver(screenOff) }
+        observedPager = null
+        reelsVisible = false
         controller.setConnected(false)
         return super.onUnbind(intent)
     }
@@ -62,12 +68,15 @@ class ReelWatcherService : AccessibilityService() {
         val now = System.currentTimeMillis()
         if (pkg != MonitorController.INSTAGRAM) {
             // Another app came to the front: the Reels context was exited (US-12/US-11 pause rules).
-            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && reelsVisible && pkg !in IGNORED_PACKAGES &&
-                pkg != packageName) {
-                setVisible(false, now)
+            val appWindow = pkg != packageName || event.className?.toString() == boomDoomActivity
+            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && appWindow && !isSystemOrKeyboard(pkg)) {
+                if (reelsVisible) setVisible(false, now)
+                else if (controller.lessonShowing) controller.submit(WatcherEvent.ReelsHidden(now))
             }
             return
         }
+        // Instagram can emit layout and scroll events behind the lesson window.
+        if (controller.lessonShowing) return
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> onScrolled(event, now)
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> checkRoot(now, force = true)
@@ -75,9 +84,15 @@ class ReelWatcherService : AccessibilityService() {
         }
     }
 
+    private fun isSystemOrKeyboard(pkg: String): Boolean {
+        val keyboard = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+        return pkg in IGNORED_PACKAGES || pkg == keyboard?.substringBefore('/')
+    }
+
     private fun onScrolled(event: AccessibilityEvent, now: Long) {
         val node = event.source ?: return
         if (!isReelsPager(node, event)) return
+        observedPager = node
         setVisible(true, now)
         val index = event.fromIndex
         val newReel = if (index >= 0) detector.onIndex(now, index) == 1
@@ -96,12 +111,14 @@ class ReelWatcherService : AccessibilityService() {
         return tall && singleItem
     }
 
-    /** Detect entering/leaving Reels without a scroll, using the configured view ids (throttled). */
+    /** Check known IDs and the pager that most recently produced a valid scroll event. */
     private fun checkRoot(now: Long, force: Boolean) {
-        if (pagerIds.isEmpty() || (!force && now - lastRootCheck < 1000)) return
+        if ((pagerIds.isEmpty() && observedPager == null) || (!force && now - lastRootCheck < 1000)) return
         lastRootCheck = now
         val root = rootInActiveWindow ?: return
-        val found = pagerIds.any { id -> root.findAccessibilityNodeInfosByViewId(id).isNotEmpty() }
+        if (root.packageName?.toString() != MonitorController.INSTAGRAM) return
+        val found = pagerIds.any { id -> root.findAccessibilityNodeInfosByViewId(id).isNotEmpty() } ||
+            observedPager?.let { it.windowId == root.windowId && it.refresh() && it.isVisibleToUser } == true
         if (found) setVisible(true, now) else if (force && reelsVisible) setVisible(false, now)
     }
 
@@ -109,15 +126,16 @@ class ReelWatcherService : AccessibilityService() {
         if (visible == reelsVisible) return
         reelsVisible = visible
         if (visible) detector.reset()
+        else observedPager = null
         controller.submit(if (visible) WatcherEvent.ReelsVisible(now) else WatcherEvent.ReelsHidden(now))
     }
 
     override fun onInterrupt() = Unit
 
     companion object {
-        /** Windows that appear over Instagram without leaving it (shade, keyboard, permission dialogs). */
+        /** System windows that appear over Instagram without leaving it. */
         private val IGNORED_PACKAGES = setOf(
-            "com.android.systemui", "com.google.android.inputmethod.latin", "com.samsung.android.honeyboard",
+            "com.android.systemui",
             "com.android.permissioncontroller", "com.google.android.permissioncontroller",
         )
     }

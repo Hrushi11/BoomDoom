@@ -49,6 +49,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        nav?.handleDeepLink(intent) // check-in card -> boomdoom://player/{id}
+        nav?.handleDeepLink(intent)
     }
 }

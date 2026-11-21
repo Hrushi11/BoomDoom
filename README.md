@@ -16,9 +16,9 @@ Doom-scroll awareness for Android: count reels against a daily budget (the red l
 ```
 android/        Kotlin + Jetpack Compose app (Tech Spec §3)
   app/            Application, navigation, Hilt, WorkManager
-  core/           model · common · designsystem · data (Room/DataStore) · network (Retrofit; lesson data only)
+  core/           model · common · designsystem · player · data (Room/DataStore) · network (Retrofit; lesson data only)
   monitor/        ReelWatcher (accessibility), SessionEngine, MonitorService, capabilities
-  overlay/        Red-line budget bar, flag tag, check-in & budget cards
+  overlay/        Red-line budget bar, flag tag, check-in & budget cards, in-feed lesson player
   ml/             vision (SigLIP 2) · text (EmbeddingGemma + OCR) · speech · fusion · llm (LFM2-VL)
   feature/        onboarding · home · learn · insights · settings
   build-logic/    Gradle convention plugins
@@ -66,7 +66,8 @@ boomdoom.apiBaseUrl=https://<your-elastic-ip-with-dashes>.sslip.io/
 
 **Trying it without Instagram.** Open You → About and tap the version 7 times to turn on demo mode. Its buttons
 simulate reels, so the red line, check-ins (every 3 reels in demo mode) and the budget card can all be shown on an
-emulator.
+emulator. Grant **Display over apps** and choose a lesson from a check-in to try the in-feed player. Swipe up or use
+Android Back to return to the screen underneath.
 
 **Assets.** Stickman illustrations are cropped from the mockups in `designs/` (`core/designsystem/.../drawable-nodpi`).
 The 8 starter lessons in `app/src/main/assets/lessons` come from `tools/make_starter_lessons.py`. They are silent
