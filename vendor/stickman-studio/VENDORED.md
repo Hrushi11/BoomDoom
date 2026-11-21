@@ -13,6 +13,7 @@
 | `src/engine/cis_pipeline.py` | Real 1-frame NVENC probe in the Python render path; fixed SFX track argument order |
 | `src/audio/mixer.py` | `mix_audio` accepts a pre-mixed `sfx_path` (call-site mismatch) |
 | `src/engine/cis_scene_illustrator.py` | Strip symbol glyphs (✦, 💭) the fonts can't draw |
+| `src/engine/cis_storyboard_planner.py` | `THEMED_CHOREOS`: 22 choreographies that draw a fixed headline ("SUBATOMIC SCALE & QUANTUM ENTANGLEMENT", "HIGH-VALUE TARGET ACQUISITION"...) are only picked when the narration matches them (score >= 5); the genre-pool fallback put them into unrelated lessons |
 | `src/video/encoder.py` | `finish_encoding` waits on FFmpeg without `communicate()` after closing stdin ("flush of closed file" on Python 3.11+); Moving Stickman mode crashed at the end of every render |
 
 Not vendored: `.venv/` and `models/` (the Docker image installs dependencies and downloads the Kokoro model).

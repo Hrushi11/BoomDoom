@@ -821,6 +821,19 @@ def _score_choreographies(text: str) -> list[tuple[int, str]]:
     return hit_scores
 
 
+# BoomDoom patch: choreographies that draw a fixed, subject-specific headline ("SUBATOMIC SCALE & QUANTUM
+# ENTANGLEMENT", "HIGH-VALUE TARGET ACQUISITION"...). They are only allowed when the narration itself matches
+# their keywords; otherwise the genre-pool fallback put quantum atoms and radar sweeps into interview lessons.
+THEMED_CHOREOS = frozenset({
+    "pedestal_bust_trap", "notification_fishhook", "crypto_market_rally", "dumbbell_gym_lift",
+    "atom_quantum_orbit", "stoic_pillar_stand", "compound_interest_snowball", "neural_net_synapse",
+    "iceberg_hidden_depth", "hamster_wheel_break", "chess_checkmate_move", "rocket_launchpad_stage",
+    "scales_of_justice", "puzzle_assembly", "radar_scanner_sweep", "dna_evolution_spiral",
+    "eisenhower_grid_sort", "terminal_code_deploy", "battery_supercharge", "protective_couple_shield",
+    "boundary_shield", "mirror_truth",
+})
+
+
 def _pick_choreography(
     text: str,
     idx: int,
@@ -920,6 +933,9 @@ def _pick_choreography(
     shift = (seed + idx * 7) % len(pool)
     rotated_pool = pool[shift:] + pool[:shift]
     candidates = scored + rotated_pool + [c for c in CHOREOGRAPHY_TYPES[:-1] if c not in rotated_pool]
+    matched = {c_name for s, c_name in hit_scores if s >= 5}  # a phrase hit or two keywords, not one stray word
+    candidates = [c for c in candidates if c not in THEMED_CHOREOS or c in matched]
+    pool = [c for c in pool if c not in THEMED_CHOREOS or c in matched] or ["split_cards_slide", "question_burst"]
 
     for c in candidates:
         if c != prev_choreo and c not in used_choreos and c != "cta_celebration":

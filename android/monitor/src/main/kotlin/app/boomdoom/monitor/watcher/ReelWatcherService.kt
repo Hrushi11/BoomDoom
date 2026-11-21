@@ -107,26 +107,60 @@ class ReelWatcherService : AccessibilityService() {
         }
     }
 
-    /** Reels pager = known view id, or a (nearly) full-screen vertical pager showing exactly one item. */
+    /**
+     * Reels pager = known view id, or a (nearly) full-screen vertical pager showing exactly one item, and in
+     * both cases only while Instagram's Reels player is actually on screen. The layout heuristic alone also
+     * matched the Home feed whenever one big post filled the screen: Home scrolls turned the budget bar back on
+     * and were counted as reels.
+     */
     private fun isReelsPager(node: AccessibilityNodeInfo, event: AccessibilityEvent): Boolean {
-        node.viewIdResourceName?.let { if (it in pagerIds) return true }
-        val cls = event.className?.toString() ?: node.className?.toString() ?: return false
-        if (classHints.none { cls.contains(it) }) return false
-        val r = Rect().also { node.getBoundsInScreen(it) }
-        val tall = r.height() >= resources.displayMetrics.heightPixels * minHeightFraction
-        val singleItem = event.fromIndex >= 0 && event.fromIndex == event.toIndex
-        return tall && singleItem
+        val byId = node.viewIdResourceName?.let { it in pagerIds } == true
+        if (!byId) {
+            val cls = event.className?.toString() ?: node.className?.toString() ?: return false
+            if (classHints.none { cls.contains(it) }) return false
+            val r = Rect().also { node.getBoundsInScreen(it) }
+            val tall = r.height() >= resources.displayMetrics.heightPixels * minHeightFraction
+            val singleItem = event.fromIndex >= 0 && event.fromIndex == event.toIndex
+            if (!(tall && singleItem)) return false
+        }
+        return reelsPlayerOnScreen()
     }
 
-    /** Check known IDs and the pager that most recently produced a valid scroll event. */
+    /** Instagram's full-height Reels player (verified on a Pixel 9: `clips_video_container`) is visible. */
+    private fun reelsPlayerOnScreen(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        if (root.packageName?.toString() != MonitorController.INSTAGRAM) return false
+        return pagerIds.any { id -> root.findAccessibilityNodeInfosByViewId(id).any(::isFullScreenVisible) }
+    }
+
+    /**
+     * Check known IDs and the pager that most recently produced a valid scroll event. A match must be visible
+     * and (nearly) full screen: Instagram keeps the Reels fragment around after a tab switch and the Home feed
+     * reuses video containers inline, which kept the budget bar on the Home feed.
+     *
+     * Tab switches inside Instagram only fire content-change events, so those may hide the bar too, but only
+     * after [HIDE_AFTER_MISSES] consecutive misses (a swipe briefly re-lays out the pager).
+     */
     private fun checkRoot(now: Long, force: Boolean) {
         if ((pagerIds.isEmpty() && observedPager == null) || (!force && now - lastRootCheck < 1000)) return
         lastRootCheck = now
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != MonitorController.INSTAGRAM) return
-        val found = pagerIds.any { id -> root.findAccessibilityNodeInfosByViewId(id).isNotEmpty() } ||
-            observedPager?.let { it.windowId == root.windowId && it.refresh() && it.isVisibleToUser } == true
-        if (found) setVisible(true, now) else if (force && reelsVisible) setVisible(false, now)
+        val found = pagerIds.any { id -> root.findAccessibilityNodeInfosByViewId(id).any(::isFullScreenVisible) } ||
+            observedPager?.let { it.windowId == root.windowId && it.refresh() && isFullScreenVisible(it) } == true
+        when {
+            found -> { misses = 0; setVisible(true, now) }
+            !reelsVisible -> Unit
+            force || ++misses >= HIDE_AFTER_MISSES -> { misses = 0; setVisible(false, now) }
+        }
+    }
+
+    private var misses = 0
+
+    private fun isFullScreenVisible(node: AccessibilityNodeInfo): Boolean {
+        if (!node.isVisibleToUser) return false
+        val r = Rect().also(node::getBoundsInScreen)
+        return r.height() >= resources.displayMetrics.heightPixels * minHeightFraction
     }
 
     private fun setVisible(visible: Boolean, now: Long) {
@@ -200,6 +234,7 @@ class ReelWatcherService : AccessibilityService() {
 
     companion object {
         private const val CAPTION_DELAY_MS = 400L
+        private const val HIDE_AFTER_MISSES = 2
         private const val AUTHOR_ID = "com.instagram.android:id/clips_author_username"
         /** Instagram's screen-reader labels for counters and controls on the Reels screen. */
         private val UI_PATTERNS = listOf(
