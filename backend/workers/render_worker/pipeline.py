@@ -14,7 +14,7 @@ from app import metrics
 from app.config import get_settings
 from app.db import session_scope
 from app.domain.lifecycle import LessonStatus
-from app.models import AppUser, Job, Lesson
+from app.models import AppUser, Job, Lesson, Topic
 from app.queues import utcnow
 from app.services import generation, push
 from app.services.manifest import build_manifest
@@ -42,8 +42,11 @@ def handle(job_id: uuid.UUID, renderer: Renderer, media: Media) -> None:
         script = lesson.script
         version = int((lesson.manifest or {}).get("version", 0)) + 1
         lesson_id = lesson.id
+        topic_row = db.get(Topic, job.topic_id) if job.topic_id else None
+        topic_name = topic_row.name if topic_row else None
         params = {
-            "topic": lesson.concept,
+            # Topic + concept: Stickman picks its scene genre (psychology, finance, tech...) from these words.
+            "topic": f"{topic_name}: {lesson.concept}" if topic_name else lesson.concept,
             "script": " ".join(s["narration"].strip() for s in script["segments"]),
             "script_mode": "use_as_is",
             "duration": generation.profile_for(db, job.user_id).length_s if job.user_id else 45,

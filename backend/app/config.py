@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # ---- OpenAI ----
     openai_api_key: str = ""  # secret
     openai_model_syllabus: str = "gpt-6.2-sol"
-    openai_model_script: str = "gpt-6.1-terra"
+    openai_model_script: str = "gpt-6.2-sol"  # top tier: scene-based scripts drive the animation quality
     openai_model_qa: str = "gpt-6-luna"
     openai_timeout_s: float = 30.0
     openai_daily_cost_cap_usd: float = 20.0

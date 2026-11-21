@@ -50,7 +50,7 @@ object NetworkModule {
             val pair = refresh?.let { runCatching { authApi.refresh(RefreshRequest(it)) }.getOrNull() }
                 ?: runCatching {
                     authApi.register(RegisterRequest(store.installSecretHash, BuildConfig.APP_VERSION,
-                        Locale.getDefault().toLanguageTag()))
+                        Locale.getDefault().stripExtensions().toLanguageTag())) // "en-US-u-mu-celsius" -> "en-US"
                 }.getOrNull()
             pair?.also { store.save(it) }
         }

@@ -37,9 +37,16 @@ Topic: {topic}. Level: {level}. Goal: {goal or "none"}. Language: {language}. Fo
 Concept: {title} — objective: {objective}. Already covered: {", ".join(covered) or "none"}. \
 Revisit if natural: {", ".join(weak) or "none"}.
 Rules: about {words} words of narration in total (~3 words per second); hook in the first sentence; one idea \
-only; at least one interaction every 15–20 s; simple, conversational language; concrete, visual nouns (the \
-animator picks illustrations from them); one-line scene hint per segment; no specific financial, medical or \
-legal advice; add a one-line disclaimer for finance/health topics.
+only; at least one interaction every 15–20 s; simple, conversational language; one-line scene hint per segment; \
+no specific financial, medical or legal advice; add a one-line disclaimer for finance/health topics.
+Make it a little story the animator can draw (it picks every illustration from the words you say):
+- Open on one relatable moment the viewer can picture: a time, a place and an object, with "you" as the stick \
+figure (e.g. "It's 2 AM in your hostel room and your phone buzzes…"). Everyday Indian settings: hostel, metro, \
+chai stall, exam hall, office stand-up, family WhatsApp group.
+- Explain the idea through one physical metaphor that returns across segments (a bouncer at a door, a leaky \
+bucket, a traffic signal, a tug of war) instead of abstract jargon; name its parts as concrete objects.
+- Each segment shows something different happening (a change, a contrast, a reveal), never just a definition.
+- End on a small, practical takeaway the viewer can do today.
 Return JSON matching the schema."""
 
 

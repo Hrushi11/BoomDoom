@@ -34,3 +34,9 @@ def test_generate_rate_limit(api):
     topic_id = api.profile({"name": "Psychology", "level": "beginner", "type": "preset"})["topics"][0]["topic_id"]
     codes = [api.post("/v1/lessons/generate", json={"topic_id": topic_id, "count": 5}).status_code for _ in range(5)]
     assert codes == [200, 200, 200, 200, 429]
+
+
+def test_register_accepts_locale_with_extensions(client):
+    # Pixel locales carry BCP 47 extensions ("en-US-u-mu-celsius", 18 chars); a 16-char cap blocked sign-up.
+    body = {"install_secret_hash": "a" * 64, "app_version": "0.1.0", "locale": "en-US-u-mu-celsius"}
+    assert client.post("/v1/users", json=body).status_code == 200

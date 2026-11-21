@@ -212,7 +212,10 @@ class VideoEncoder:
                 pass
 
         try:
-            _, stderr = process.communicate(timeout=120)
+            # BoomDoom patch: stdin is already closed above, and communicate() would try to flush it
+            # ("ValueError: flush of closed file" on Python 3.11+). Read stderr and wait instead.
+            stderr = process.stderr.read() if process.stderr else b""
+            process.wait(timeout=120)
         except subprocess.TimeoutExpired:
             logger.error("FFmpeg timed out during finalization; killing process.")
             process.kill()

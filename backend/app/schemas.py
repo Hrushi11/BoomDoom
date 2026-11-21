@@ -23,7 +23,8 @@ class Strict(BaseModel):
 class RegisterRequest(Strict):
     install_secret_hash: str = Field(min_length=32, max_length=128)
     app_version: str = Field(max_length=32)
-    locale: str = Field(max_length=16)
+    # BCP 47 tags can carry extensions (Pixel: "en-US-u-mu-celsius"); a 16-char cap blocked registration.
+    locale: str = Field(max_length=35)
 
 
 class RefreshRequest(Strict):

@@ -30,8 +30,11 @@ from app.models import AppUser, Job, Lesson, LessonProfile, LessonReport, Syllab
 
 log = logging.getLogger(__name__)
 
-VISUAL_STYLES = ["B1", "B2", "B3"]
-ACCENT_COLORS = ["#2F6F5E", "#2EC4B6", "#FF6B3D", "#5B6CFF", "#C2410C", "#7C3AED"]
+# Stickman Studio "B2 Warm Editorial": cream paper and ink, the closest built-in look to the Stickman Studio
+# demos. B3 (dark neon chalkboard) read as plain synthwave on phones, so it is no longer used.
+VISUAL_STYLES = ["B2"]
+# Muted accents that sit well on B2's cream paper (B2's own palette).
+ACCENT_COLORS = ["#C84B31", "#2B5B84", "#B7791F", "#2F6F5E"]
 _BLOCKED_TERMS = {"porn", "nsfw", "bomb making", "self harm", "suicide method"}
 INACTIVE = (LessonStatus.FAILED_FINAL.value, LessonStatus.HIDDEN.value)
 
