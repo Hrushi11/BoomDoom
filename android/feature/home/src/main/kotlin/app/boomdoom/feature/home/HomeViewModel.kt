@@ -26,6 +26,8 @@ data class HomeUi(
     val today: TodayStats = TodayStats(""),
     val status: MonitoringStatus = MonitoringStatus.Paused,
     val next: NextLesson? = null,
+    val modelsReady: Boolean = false,
+    val captureActive: Boolean = false,
 )
 
 @HiltViewModel
@@ -43,13 +45,18 @@ class HomeViewModel @Inject constructor(
         NextLesson(row.lessonId, row.concept, p.topicName, row.durationS.toInt())
     }
 
-    val ui: StateFlow<HomeUi> = combine(settingsRepo.settings, tracking.observeToday(), next, statusTick, monitoring.live) {
-            s, today, n, _, _ ->
-        HomeUi(s, today, monitoring.status(s.monitoringPaused), n)
+    val ui: StateFlow<HomeUi> = combine(
+        combine(settingsRepo.settings, tracking.observeToday(), next) { s, t, n -> Triple(s, t, n) },
+        statusTick, monitoring.live, monitoring.captureActive,
+    ) { (s, today, n), _, _, capture ->
+        HomeUi(s, today, monitoring.status(s.monitoringPaused), n, monitoring.modelsInstalled(), capture)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUi())
 
     /** Permissions can change in system settings; re-check on resume (US-10, US-32). */
     fun refreshStatus() { statusTick.value++ }
+
+    fun captureIntent() = monitoring.screenCaptureIntent()
+    fun startCapture(resultCode: Int, data: android.content.Intent) = monitoring.startScreenCapture(resultCode, data)
 
     fun setPaused(paused: Boolean) = viewModelScope.launch { settingsRepo.setMonitoringPaused(paused) }
 

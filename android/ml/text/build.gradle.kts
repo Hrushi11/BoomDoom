@@ -1,7 +1,8 @@
 plugins { id("boomdoom.android.library") }
 dependencies {
     implementation(project(":core:model"))
-    // Add when classification is built (Tech Spec §5.4). Both must ship 16 KB-aligned native libs:
-    // implementation(libs.onnxruntime.android)
-    // implementation(libs.mlkit.text.devanagari)
+    // 1.23.2: native libs are 16 KB page-aligned (verified). No onnxruntime-extensions: its 0.13.0 libs are
+    // 4 KB-aligned, so the caption tokenizer is implemented in Kotlin (UnigramTokenizer).
+    implementation(libs.onnxruntime.android)
+    testImplementation("org.json:json:20240303") // Android's org.json is stubbed in JVM unit tests
 }

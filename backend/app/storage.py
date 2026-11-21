@@ -13,6 +13,7 @@ from app.config import get_settings
 class Storage(Protocol):
     def put_file(self, key: str, path: Path, content_type: str) -> None: ...
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None: ...
+    def get_bytes(self, key: str) -> bytes | None: ...
     def delete_prefix(self, prefix: str) -> int: ...
 
 
@@ -34,6 +35,12 @@ class S3Storage:
 
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
         self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
+
+    def get_bytes(self, key: str) -> bytes | None:
+        try:
+            return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        except self.client.exceptions.NoSuchKey:
+            return None
 
     def delete_prefix(self, prefix: str) -> int:
         deleted = 0
@@ -65,6 +72,12 @@ class LocalStorage:
 
     def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
         self._path(key).write_bytes(data)
+
+    def get_bytes(self, key: str) -> bytes | None:
+        p = (self.root / key).resolve()
+        if not str(p).startswith(str(self.root.resolve())) or not p.is_file():
+            return None
+        return p.read_bytes()
 
     def delete_prefix(self, prefix: str) -> int:
         target = self.root / prefix

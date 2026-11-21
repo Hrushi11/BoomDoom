@@ -1,3 +1,4 @@
+import json
 import logging
 
 from fastapi import APIRouter
@@ -30,6 +31,27 @@ def readyz() -> JSONResponse:
 @router.get("/.well-known/jwks.json")
 def jwks() -> dict:
     return auth.jwks()
+
+
+MODELS_MANIFEST_KEY = "models/manifest.json"
+
+
+@router.get("/v1/models")
+def models() -> dict:
+    """On-device classification models (Tech Spec §5.9): files with SHA-256, size and a signed download URL.
+
+    The manifest is published by ml/publish_models.py. Model files are not user data and contain no feed data.
+    """
+    from app.cdn import sign_url
+    from app.storage import get_storage
+
+    raw = get_storage().get_bytes(MODELS_MANIFEST_KEY)
+    if raw is None:
+        return {"version": None, "files": []}
+    manifest = json.loads(raw)
+    for f in manifest["files"]:
+        f["url"] = sign_url(f.pop("key"))
+    return manifest
 
 
 @router.get("/v1/config")

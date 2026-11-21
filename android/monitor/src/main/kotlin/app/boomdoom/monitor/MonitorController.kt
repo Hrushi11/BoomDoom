@@ -41,6 +41,7 @@ class MonitorController @Inject constructor(
     private val settingsRepo: SettingsRepository,
     private val tracking: TrackingRepository,
     private val learning: LearningRepository,
+    private val analyzer: app.boomdoom.monitor.analysis.ReelAnalyzer,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val events = Channel<WatcherEvent>(Channel.UNLIMITED)
@@ -53,6 +54,7 @@ class MonitorController @Inject constructor(
     private var sessionId: String? = null
     private var sessionDay: String? = null
     private var reelsVisible = false
+    private var currentReelId: String? = null
 
     private val _live = MutableStateFlow(LiveState())
     val live: StateFlow<LiveState> = _live.asStateFlow()
@@ -96,6 +98,37 @@ class MonitorController @Inject constructor(
         // Only goal changes rebuild the engine; unrelated settings (e.g. sync flags) must not reset
         // the session's back-off and snooze state.
         if (goalsChanged) engine = null
+        if (active(s)) analyzer.warmUp(s.customLabels)
+        setDemoReceiver(s.demoMode)
+    }
+
+    /**
+     * Demo mode only (US-34): simulate a reel while ANY app is in front, so classification can be shown on an
+     * emulator without Instagram:
+     *   adb shell am broadcast -a app.boomdoom.DEMO_REEL [--es caption "Easy paneer recipe"]
+     * Registered only while demo mode is on.
+     */
+    private var demoReceiver: android.content.BroadcastReceiver? = null
+
+    private fun setDemoReceiver(on: Boolean) {
+        if (on == (demoReceiver != null)) return
+        if (on) {
+            demoReceiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: Context, i: Intent) {
+                    simulateReels(1)
+                    val caption = i.getStringExtra("caption")
+                    scope.launch {
+                        delay(300)
+                        submit(WatcherEvent.CaptionRead(System.currentTimeMillis(), caption.orEmpty()))
+                    }
+                }
+            }
+            androidx.core.content.ContextCompat.registerReceiver(ctx, demoReceiver,
+                android.content.IntentFilter(DEMO_ACTION), androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+        } else {
+            runCatching { ctx.unregisterReceiver(demoReceiver) }
+            demoReceiver = null
+        }
     }
 
     private fun goals(s: UserSettings) =
@@ -133,7 +166,7 @@ class MonitorController @Inject constructor(
             is WatcherEvent.ReelTransition -> { reelsVisible = true; Input.ReelTransition(e.at) }
             is WatcherEvent.ScreenOff -> Input.ScreenOff(e.at)
             is WatcherEvent.Tick -> Input.Tick(e.at)
-            is WatcherEvent.CaptionRead -> return
+            is WatcherEvent.CaptionRead -> { currentReelId?.let { analyzer.offerCaption(it, e.text) }; return }
         }
         val effects = eng.handle(input)
         if (e is WatcherEvent.ReelTransition) recordReel(e.at)
@@ -143,11 +176,23 @@ class MonitorController @Inject constructor(
 
     private suspend fun recordReel(at: Long) {
         val sid = sessionId ?: return
-        // Classification needs screen understanding (not in the POC yet): every reel is "other" until then.
-        tracking.recordReel(sid, sessionDay ?: tracking.dayKey(settings, at), startedAt = at, watchMs = 0,
+        // Counted immediately with an "other" placeholder; classification updates it once (ReelAnalyzer).
+        val reelId = tracking.recordReel(sid, sessionDay ?: tracking.dayKey(settings, at), startedAt = at, watchMs = 0,
             label = BuiltInLabel.OTHER, confidence = 0f, flagged = false, signals = 0, budget = settings.budget,
             demo = settings.demoMode)
+        currentReelId = reelId
+        analyzer.analyze(reelId, at, settings.flaggedLabels, settings.customLabels) { result ->
+            scope.launch {
+                // Flag tag (US-14): only while that same reel is still on screen.
+                if (result.reel.showFlagTag && currentReelId == result.reelId && reelsVisible) {
+                    overlays.showFlag(labelName(result.reel.primaryLabel))
+                }
+            }
+        }
     }
+
+    private fun labelName(key: String) =
+        BuiltInLabel.entries.firstOrNull { it.key == key }?.displayName ?: key.replaceFirstChar { it.uppercase() }
 
     private suspend fun apply(effects: List<Effect>) {
         for (fx in effects) when (fx) {
@@ -161,6 +206,7 @@ class MonitorController @Inject constructor(
             is Effect.SessionEnded -> {
                 sessionId?.let { tracking.endSession(it, fx.at, fx.reason.name.lowercase()) }
                 sessionId = null
+                currentReelId = null
                 overlays.hideAll()
             }
         }
@@ -237,5 +283,6 @@ class MonitorController @Inject constructor(
 
     companion object {
         const val INSTAGRAM = "com.instagram.android"
+        const val DEMO_ACTION = "app.boomdoom.DEMO_REEL"
     }
 }

@@ -2,5 +2,6 @@
     <string name="a11y_label">BoomDoom reel counter</string>
     <string name="a11y_description">BoomDoom counts the reels you watch and shows your daily progress bar. Everything it sees stays on your phone.</string>
     <string name="monitor_channel">Monitoring</string>
-    <string name="monitor_notification">BoomDoom is keeping count</string>
+    <string name="monitor_notification">BoomDoom is understanding your feed on this phone</string>
+    <string name="monitor_notification_body">Nothing leaves your phone. Stop anytime from BoomDoom.</string>
 </resources>

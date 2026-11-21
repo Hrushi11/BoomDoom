@@ -131,6 +131,8 @@ class OnboardingViewModel @Inject constructor(
     fun finish(onDone: () -> Unit) = viewModelScope.launch {
         settings.setOnboardingDone(true)
         LessonSyncScheduler.schedulePeriodic(ctx)
+        // Classification models download on the first Wi-Fi after onboarding (Tech Spec §5.9).
+        app.boomdoom.core.network.ModelDownloadWorker.start(ctx)
         onDone()
     }
 }

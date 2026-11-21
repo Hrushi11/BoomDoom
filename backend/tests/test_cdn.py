@@ -23,3 +23,26 @@ def test_presigned_url_uses_regional_endpoint(monkeypatch):
     finally:
         get_settings.cache_clear()
         cdn._s3.cache_clear()
+
+
+def test_models_manifest_endpoint(client):
+    import json
+
+    from app.storage import get_storage
+
+    assert client.get("/v1/models").json() == {"version": None, "files": []}
+    get_storage().put_bytes(
+        "models/manifest.json",
+        json.dumps(
+            {
+                "version": "2026.11.21",
+                "total_bytes": 3,
+                "files": [{"name": "vision.json", "key": "models/2026.11.21/vision.json", "sha256": "ab", "size": 3}],
+            }
+        ).encode(),
+        "application/json",
+    )
+    body = client.get("/v1/models").json()
+    assert body["version"] == "2026.11.21"
+    assert body["files"][0]["url"].endswith("/models/2026.11.21/vision.json")
+    assert "key" not in body["files"][0]

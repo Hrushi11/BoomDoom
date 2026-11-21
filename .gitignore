@@ -67,3 +67,6 @@ ml/out/
 !*.tfvars.example
 .terraform.lock.hcl.bak
 crash.log
+
+# Session history (local notes, not committed)
+chat.md

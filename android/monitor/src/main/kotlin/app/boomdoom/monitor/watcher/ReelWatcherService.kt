@@ -16,7 +16,9 @@ import javax.inject.Inject
 
 /**
  * Detects the Instagram Reels screen and reel transitions (Tech Spec §4.1) and forwards them to
- * [MonitorController]. Reads only layout structure (view ids, classes, bounds, item indexes) — never text.
+ * [MonitorController]. Counting uses layout structure only (view ids, classes, bounds, item indexes). After a
+ * transition it also reads the visible caption text for on-device classification (ml/README.md step 2); the
+ * text is passed in memory and never stored.
  */
 @AndroidEntryPoint
 class ReelWatcherService : AccessibilityService() {
@@ -97,7 +99,12 @@ class ReelWatcherService : AccessibilityService() {
         val index = event.fromIndex
         val newReel = if (index >= 0) detector.onIndex(now, index) == 1
         else detector.onScrollSettled(now, event.scrollDeltaY, frameChanged = null)
-        if (newReel) controller.submit(WatcherEvent.ReelTransition(now))
+        if (newReel) {
+            controller.submit(WatcherEvent.ReelTransition(now))
+            // Give Instagram a moment to draw the new reel's caption, then read it once.
+            mainHandler.removeCallbacks(readCaption)
+            mainHandler.postDelayed(readCaption, CAPTION_DELAY_MS)
+        }
     }
 
     /** Reels pager = known view id, or a (nearly) full-screen vertical pager showing exactly one item. */
@@ -130,9 +137,46 @@ class ReelWatcherService : AccessibilityService() {
         controller.submit(if (visible) WatcherEvent.ReelsVisible(now) else WatcherEvent.ReelsHidden(now))
     }
 
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val readCaption = Runnable {
+        val text = runCatching { rootInActiveWindow?.let(::captionText) }.getOrNull()
+        controller.submit(WatcherEvent.CaptionRead(System.currentTimeMillis(), text.orEmpty()))
+    }
+
+    /**
+     * Heuristic caption extraction until spike S1 pins Instagram's caption view ids: visible texts that read
+     * like prose (>= 12 chars with letters), excluding counters and UI labels; longest first, at most 3.
+     */
+    private fun captionText(root: AccessibilityNodeInfo): String {
+        val texts = ArrayList<String>()
+        val screen = Rect(0, 0, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+        fun walk(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 40 || texts.size > 60) return
+            val t = node.text?.toString()?.trim()
+            if (!t.isNullOrEmpty() && node.isVisibleToUser && looksLikeCaption(t)) {
+                val r = Rect().also { node.getBoundsInScreen(it) }
+                if (Rect.intersects(r, screen)) texts += t
+            }
+            for (i in 0 until node.childCount) node.getChild(i)?.let { walk(it, depth + 1) }
+        }
+        walk(root, 0)
+        return texts.distinct().sortedByDescending { it.length }.take(3).joinToString(". ").take(600)
+    }
+
+    private fun looksLikeCaption(t: String): Boolean {
+        if (t.length < 12) return false
+        if (t.count { it.isLetter() } < 6) return false
+        val lower = t.lowercase()
+        return UI_TEXT.none { lower == it || lower.startsWith("$it ") }
+    }
+
     override fun onInterrupt() = Unit
 
     companion object {
+        private const val CAPTION_DELAY_MS = 400L
+        private val UI_TEXT = setOf("follow", "following", "like", "comment", "share", "send", "reels", "original audio",
+            "suggested for you", "add comment", "view all comments", "liked by", "remix", "use template")
+
         /** System windows that appear over Instagram without leaving it. */
         private val IGNORED_PACKAGES = setOf(
             "com.android.systemui",

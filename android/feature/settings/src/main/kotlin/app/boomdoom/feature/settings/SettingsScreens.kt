@@ -37,7 +37,11 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TrackChanges
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -415,12 +419,58 @@ fun PermissionsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel(
         PermissionCard("Notifications", "Tells you when new lessons are ready.", m.notificationsAllowed()) {
             ctx.startActivity(m.appInfoIntent())
         }
+        ScreenUnderstandingCard(m)
         Card {
             Text("Accessibility toggle greyed out?", style = MaterialTheme.typography.titleMedium)
             Text("Open App info → ⋮ → Allow restricted settings, then come back and turn on Accessibility.",
                 style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
             Spacer(Modifier.height(8.dp))
             LearnButton("Open App info", { ctx.startActivity(m.appInfoIntent()) })
+        }
+    }
+}
+
+/**
+ * Content understanding (ml/README.md): download the on-device models on Wi-Fi, then grant screen capture.
+ * Android shows a persistent notification while capture runs and may ask again after a restart (US-07).
+ */
+@Composable
+private fun ScreenUnderstandingCard(m: app.boomdoom.core.data.MonitoringGateway) {
+    val ctx = LocalContext.current
+    val active by m.captureActive.collectAsStateWithLifecycle()
+    val download by remember { app.boomdoom.core.network.ModelDownloadWorker.progress(ctx) }
+        .collectAsStateWithLifecycle(app.boomdoom.core.network.ModelDownloadState.IDLE to 0f)
+    var installed by remember { mutableStateOf(m.modelsInstalled()) }
+    LaunchedEffect(download.first) { installed = m.modelsInstalled() }
+    val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        r.data?.let { if (r.resultCode == android.app.Activity.RESULT_OK) m.startScreenCapture(r.resultCode, it) }
+    }
+    val running = download.first == app.boomdoom.core.network.ModelDownloadState.RUNNING ||
+        download.first == app.boomdoom.core.network.ModelDownloadState.WAITING
+    Card {
+        Text("Screen understanding", style = MaterialTheme.typography.titleMedium)
+        Text("Recognises what you watch (food, finance, rage-bait…) entirely on this phone. Frames and captions are " +
+            "analysed in memory and never stored or sent.", style = MaterialTheme.typography.bodySmall, color = BoomColors.InkSecondary)
+        Spacer(Modifier.height(10.dp))
+        when {
+            !installed && running -> {
+                Text(if (download.second > 0f) "Downloading models… ${(download.second * 100).toInt()}%"
+                    else "Waiting for Wi-Fi to download models (~240 MB)…", style = MaterialTheme.typography.labelMedium)
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator({ download.second }, Modifier.fillMaxWidth(), color = BoomColors.LearnDeep)
+            }
+            !installed -> {
+                if (download.first == app.boomdoom.core.network.ModelDownloadState.FAILED) {
+                    Text("Download failed. Check your connection and try again.", style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFFD32F2F))
+                }
+                LearnButton("Download models (~240 MB, Wi-Fi)", { app.boomdoom.core.network.ModelDownloadWorker.start(ctx) })
+            }
+            !active -> LearnButton("Turn on", { consent.launch(m.screenCaptureIntent()) })
+            else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Enabled", color = Color(0xFF2E9E50), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                TextButton({ m.stopScreenCapture() }) { Text("Stop") }
+            }
         }
     }
 }

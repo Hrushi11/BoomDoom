@@ -1,5 +1,7 @@
 package app.boomdoom.feature.home
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -93,6 +95,12 @@ fun HomeScreen(onOpenLesson: (String) -> Unit, onOpenLearn: () -> Unit, vm: Home
             }
             if (t.demo || s.demoMode) DemoBanner()
             SetupBanner(ui.status) { ctx.startActivity(vm.fixIntent(ui.status)) }
+            if (ui.status !is MonitoringStatus.SetupRequired && !s.monitoringPaused && ui.modelsReady && !ui.captureActive) {
+                val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+                    r.data?.let { if (r.resultCode == android.app.Activity.RESULT_OK) vm.startCapture(r.resultCode, it) }
+                }
+                CaptureBanner { consent.launch(vm.captureIntent()) }
+            }
 
             BudgetCard(t.reels, s.budget, ui.next) { ui.next?.let { onOpenLesson(it.id) } ?: onOpenLearn() }
 
@@ -161,6 +169,23 @@ private fun SetupBanner(status: MonitoringStatus, onFix: () -> Unit) {
             Text("Fix setup", style = MaterialTheme.typography.labelMedium, color = BoomColors.Background,
                 modifier = Modifier.clip(PillShape).background(BoomColors.Boom)
                     .clickable(onClick = onFix).padding(horizontal = 14.dp, vertical = 8.dp))
+        }
+    }
+}
+
+/** US-32: content understanding is off (never enabled, or Android needs consent again after a restart). */
+@Composable
+private fun CaptureBanner(onResume: () -> Unit) {
+    BoomCard(Modifier.fillMaxWidth(), color = Color(0xFF13222A), border = BoomColors.Learn) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Screen understanding is off", style = MaterialTheme.typography.titleSmall)
+                Secondary("Categories and flags won't update until it's on. Everything stays on this phone.", align = TextAlign.Start)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("Turn on", style = MaterialTheme.typography.labelMedium, color = BoomColors.Background,
+                modifier = Modifier.clip(PillShape).background(BoomColors.Learn).clickable(onClick = onResume)
+                    .padding(horizontal = 14.dp, vertical = 8.dp))
         }
     }
 }

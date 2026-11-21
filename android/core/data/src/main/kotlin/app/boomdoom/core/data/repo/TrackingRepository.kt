@@ -87,11 +87,15 @@ class TrackingRepository @Inject constructor(
         return id
     }
 
-    /** One finalised reel: insert + incremental aggregate update in one transaction (Tech Spec §6.3). */
+    /**
+     * A new reel at the transition (counted immediately, Tech Spec §6.3). Classification arrives later through
+     * [classifyReel]. Returns the reel id.
+     */
     suspend fun recordReel(sessionId: String, dayKey: String, startedAt: Long, watchMs: Long, label: String,
-                           confidence: Float, flagged: Boolean, signals: Int, budget: Int, demo: Boolean = false) {
+                           confidence: Float, flagged: Boolean, signals: Int, budget: Int, demo: Boolean = false): String {
+        val id = UUID.randomUUID().toString()
         db.withTransaction {
-            dao.insertReel(ReelEntity(UUID.randomUUID().toString(), sessionId, dayKey, startedAt, watchMs, label,
+            dao.insertReel(ReelEntity(id, sessionId, dayKey, startedAt, watchMs, label,
                 confidence, "[]", signals, flagged, null, null, demo))
             val day = dao.day(dayKey) ?: DailyAggregateEntity(dayKey)
             dao.upsertDay(day.copy(reels = day.reels + 1, budget = budget, flagged = day.flagged + if (flagged) 1 else 0,
@@ -100,6 +104,33 @@ class TrackingRepository @Inject constructor(
                 dao.upsertSession(s.copy(reelCount = s.reelCount + 1, flaggedCount = s.flaggedCount + if (flagged) 1 else 0))
             }
         }
+        return id
+    }
+
+    /**
+     * Finalise a reel's label exactly once (ml/README.md step 6). Adjusts flagged counts in the same transaction,
+     * so a late result never counts a second reel. Returns false if the reel no longer exists or was already
+     * classified.
+     */
+    suspend fun classifyReel(reelId: String, label: String, confidence: Float, secondary: List<String>, signals: Int,
+                             flagged: Boolean): Boolean = db.withTransaction {
+        val reel = dao.reel(reelId) ?: return@withTransaction false
+        if (reel.signals != 0) return@withTransaction false // already finalised
+        dao.insertReel(reel.copy(primaryLabel = label, confidence = confidence, signals = signals, flagged = flagged,
+            secondaryLabels = secondary.joinToString(",", "[", "]") { "\"$it\"" }))
+        val delta = (if (flagged) 1 else 0) - (if (reel.flagged) 1 else 0)
+        if (delta != 0) {
+            dao.day(reel.dayKey)?.let { dao.upsertDay(it.copy(flagged = it.flagged + delta)) }
+            dao.session(reel.sessionId)?.let { dao.upsertSession(it.copy(flaggedCount = it.flaggedCount + delta)) }
+        }
+        true
+    }
+
+    /** Category shares for one session (check-in card breakdown); "other" excluded. */
+    suspend fun sessionBreakdown(sessionId: String): List<Pair<String, Float>> {
+        val counts = dao.sessionLabelCounts(sessionId).filter { it.label != "other" }
+        val total = counts.sumOf { it.count }.toFloat()
+        return if (total == 0f) emptyList() else counts.map { it.label to it.count / total }
     }
 
     suspend fun endSession(sessionId: String, at: Long, reason: String) {

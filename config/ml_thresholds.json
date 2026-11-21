@@ -5,6 +5,8 @@
   "other_threshold": 0.45,
   "flag_threshold": 0.70,
   "talking_head_threshold": 0.60,
+  "caption_exit_threshold": 0.80,
+  "caption_exit_margin": 0.15,
   "speech_trigger": 0.55,
   "secondary_threshold": 0.60
 }

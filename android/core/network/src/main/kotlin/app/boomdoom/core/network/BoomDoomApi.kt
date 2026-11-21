@@ -32,6 +32,7 @@ interface BoomDoomApi {
     @PUT("v1/users/{id}/push-token") suspend fun pushToken(@Path("id") userId: String, @Body body: PushToken): retrofit2.Response<Unit>
     @DELETE("v1/users/{id}") suspend fun deleteAccount(@Path("id") userId: String): JsonObject
     @GET("v1/config") suspend fun config(): JsonObject
+    @GET("v1/models") suspend fun models(): ModelsManifest
 }
 
 @Serializable data class RegisterRequest(
@@ -67,3 +68,7 @@ interface BoomDoomApi {
 @Serializable data class EventBatch(val events: List<LessonEvent>)
 @Serializable data class ReportRequest(val reason: String, val note: String? = null, @SerialName("position_s") val positionS: Double)
 @Serializable data class PushToken(@SerialName("fcm_token") val fcmToken: String)
+
+@Serializable data class ModelFile(val name: String, val url: String, val sha256: String, val size: Long)
+@Serializable data class ModelsManifest(val version: String? = null, val files: List<ModelFile> = emptyList(),
+                                        @SerialName("total_bytes") val totalBytes: Long = 0)

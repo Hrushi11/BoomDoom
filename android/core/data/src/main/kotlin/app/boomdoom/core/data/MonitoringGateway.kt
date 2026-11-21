@@ -19,6 +19,14 @@ interface MonitoringGateway {
     fun overlaySettingsIntent(): Intent
     fun appInfoIntent(): Intent
 
+    // ---- content understanding (screen capture + on-device models) ----
+    val captureActive: StateFlow<Boolean>
+    fun modelsInstalled(): Boolean
+    /** System consent dialog for screen capture (MediaProjectionManager). */
+    fun screenCaptureIntent(): Intent
+    fun startScreenCapture(resultCode: Int, data: Intent)
+    fun stopScreenCapture()
+
     /** Demo mode (US-34) only. */
     fun simulateReels(count: Int)
     fun simulateLeaveReels()

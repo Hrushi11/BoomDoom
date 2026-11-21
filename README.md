@@ -97,7 +97,9 @@ Accessibility, the red-line bar, check-in and budget cards, Home, Learn with the
 multiple choice, true/false), recap and Learned, My topics, Insights, You, settings, account deletion, backend sync,
 and demo mode.
 
-**Not built yet:** content classification. That needs screen capture plus the on-device models (SigLIP 2, OCR,
-speech), so until then every reel is recorded as "other" and no category breakdown is shown. Reels-screen detection
+**Reel classification is in benchmarking.** The [ML harness](ml/README.md) runs caption-first classification,
+five-second visual previews and optional speech on local test clips. Its Android runner measures caption and frame
+inference on a phone. Live capture and model integration in the monitoring app are pending, so live reels are
+still recorded as "other". Reels-screen detection
 uses a layout heuristic plus unverified view ids (`monitor/src/main/assets/reels_selectors.json`); spike S1 on a real
 phone is needed to confirm them.

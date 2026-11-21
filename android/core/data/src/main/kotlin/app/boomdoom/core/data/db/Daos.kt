@@ -37,6 +37,12 @@ interface TrackingDao {
     )
     fun observePeakHour(dayKey: String): Flow<HourCount?>
 
+    @Query(
+        "SELECT COALESCE(correctedLabel, primaryLabel) AS label, COUNT(*) AS count FROM reel " +
+            "WHERE sessionId = :sessionId GROUP BY label ORDER BY count DESC",
+    )
+    suspend fun sessionLabelCounts(sessionId: String): List<LabelCount>
+
     @Query("SELECT COUNT(*) FROM session WHERE dayKey = :dayKey AND reelCount > 0")
     fun observeSessionCount(dayKey: String): Flow<Int>
 

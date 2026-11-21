@@ -479,8 +479,9 @@ internal fun PermissionsStep(s: OnboardingState, vm: OnboardingViewModel, onDone
             PermissionRow(Icons.Filled.Notifications, Color(0xFFFFE3A8), "Notifications (optional)", "Tell me when lessons are ready.",
                 s.notifications) { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         }
-        PermissionRow(Icons.Filled.Visibility, Color(0xFFFFD9A0), "Screen understanding", "Recognise content, only on this phone.",
-            granted = false, comingSoon = true) {}
+        PermissionRow(Icons.Filled.Visibility, Color(0xFFFFD9A0), "Screen understanding",
+            "Recognise content, only on this phone. Models download on Wi-Fi; turn it on in You → Permissions.",
+            granted = false, comingSoon = true, badge2 = "Later") {}
         PermissionRow(Icons.Filled.Mic, Color(0xFFC9C2F5), "Audio understanding (optional)", "Understand Hindi talking reels.",
             granted = false, comingSoon = true) {}
         if (!s.accessibility) {
@@ -519,7 +520,7 @@ internal fun PermissionsStep(s: OnboardingState, vm: OnboardingViewModel, onDone
 
 @Composable
 private fun PermissionRow(icon: ImageVector, badge: Color, title: String, reason: String, granted: Boolean,
-                          comingSoon: Boolean = false, onEnable: () -> Unit) {
+                          comingSoon: Boolean = false, badge2: String = "Coming soon", onEnable: () -> Unit) {
     BoomCard(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(icon, badge, BoomColors.Ink, size = 44)
@@ -530,7 +531,7 @@ private fun PermissionRow(icon: ImageVector, badge: Color, title: String, reason
             }
             Spacer(Modifier.width(8.dp))
             when {
-                comingSoon -> Text("Coming soon", style = MaterialTheme.typography.labelSmall, color = BoomColors.TextSecondary,
+                comingSoon -> Text(badge2, style = MaterialTheme.typography.labelSmall, color = BoomColors.TextSecondary,
                     modifier = Modifier.clip(PillShape).background(BoomColors.CardRaised).padding(horizontal = 10.dp, vertical = 6.dp))
                 granted -> Row(Modifier.clip(PillShape).background(Color(0xFF2E9E50)).padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically) {

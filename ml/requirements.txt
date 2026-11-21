@@ -1,5 +1,5 @@
 torch>=2.5
-transformers>=4.47
+transformers>=4.52,<5
 onnx>=1.17
 onnxruntime>=1.20
 optimum>=1.23
@@ -7,3 +7,8 @@ scikit-learn>=1.5
 numpy>=2.0
 pillow>=11.0
 openai>=1.55
+av>=14
+requests>=2.32
+sentencepiece>=0.2
+protobuf>=5
+shruti-onnx==0.2.0
