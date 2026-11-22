@@ -9,6 +9,7 @@ exactly like downloaded lessons.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -153,15 +154,67 @@ def build(lesson: dict, tmp: Path) -> dict:
     }
 
 
+def build_film(lesson: dict, work: Path) -> dict:
+    """Same narration and quiz, rendered by the OpenAI-directed film pipeline (backend/workers/film_worker)."""
+    import sys
+
+    sys.path.insert(0, str(ROOT / "backend"))
+    from workers.film_worker.director import Tools, make_film
+    from workers.film_worker.llm import FilmLLM
+    from workers.render_worker.pause_times import caption_words, segment_end_times
+    from workers.render_worker.renderers import film_project, split_sentences
+
+    lid = f"starter-{lesson['topic']}"
+    segments = [{"id": s, "narration": text} for s, text in lesson["segments"]]
+    studio = os.environ.get("STICKMAN_STUDIO_CHECKOUT", str(ROOT.parent / "Stickman-Studio"))
+    tools = Tools(skill_dir=ROOT / "vendor/stickman-skill", studio_dir=ROOT / "vendor/stickman-studio",
+                  python=f"{studio}/.venv/bin/python", models_dir=f"{studio}/models")
+    result = make_film(lesson["name"], lesson["concept"], work / lid, tools=tools, llm=FilmLLM(record_spend=False),
+                       narration=split_sentences(segments), on_stage=lambda st: print(f"  {lid}: {st}", flush=True))
+    project = film_project(result)
+    seg_ends, _ = segment_end_times(segments, caption_words(project), result.duration_s)
+    out = OUT / f"{lid}.mp4"
+    subprocess.run([str(Path(tools.ffmpeg())), "-hide_banner", "-loglevel", "error", "-y", "-i", str(result.video),
+                    "-vf", "scale=720:1280", "-c:v", "libx264", "-preset", "slow", "-crf", "28", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "64k", "-movflags", "+faststart", str(out)], check=True)
+    after, itype, q, opts, ans, ok, bad = lesson["interaction"]
+    return {
+        "lesson_id": lid, "topic": {"id": lesson["topic"], "name": lesson["name"]}, "concept": lesson["concept"],
+        "format": lesson["format"], "level": "beginner", "language": "en", "duration_s": result.duration_s,
+        "segments": [{"id": s, "end_s": round(seg_ends[s], 2)} for s, _ in lesson["segments"]],
+        "interactions": [{"id": "i1", "after_segment": after, "pause_at_s": round(seg_ends[after] + 0.15, 2), "type": itype,
+                          "question": q, "options": opts, "answer_index": ans, "feedback_correct": ok, "feedback_wrong": bad}],
+        "recap": lesson["recap"], "go_deeper": [], "disclaimer": lesson["disclaimer"], "version": 2,
+    }
+
+
 def main() -> None:
+    """python tools/make_starter_lessons.py [--film] [--only finance tech ...] [--parallel 2]
+
+    --film renders with the film pipeline (needs OPENAI_API_KEY, the Stickman Studio checkout with Playwright and
+    Chromium in its virtualenv; ~8 min and ~$0.50 per lesson). Without it, the old placeholder slides are made."""
+    import argparse
+    from concurrent.futures import ThreadPoolExecutor
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--film", action="store_true")
+    ap.add_argument("--only", nargs="*", default=[])
+    ap.add_argument("--parallel", type=int, default=2)
+    a = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    index = []
+    chosen = [x for x in LESSONS if not a.only or x["topic"] in a.only]
     with tempfile.TemporaryDirectory() as d:
-        for lesson in LESSONS:
-            manifest = build(lesson, Path(d))
-            (OUT / f"{manifest['lesson_id']}.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-            index.append({"manifest": f"lessons/{manifest['lesson_id']}.json", "video": f"lessons/{manifest['lesson_id']}.mp4"})
-            print(f"{manifest['lesson_id']}: {manifest['duration_s']}s")
+        if a.film:
+            work = Path(os.environ.get("STARTER_FILM_WORKDIR", d))
+            with ThreadPoolExecutor(max(1, a.parallel)) as pool:
+                manifests = list(pool.map(lambda x: build_film(x, work), chosen))
+        else:
+            manifests = [build(x, Path(d)) for x in chosen]
+    for m in manifests:
+        (OUT / f"{m['lesson_id']}.json").write_text(json.dumps(m, indent=2, ensure_ascii=False))
+        print(f"{m['lesson_id']}: {m['duration_s']}s")
+    index = [{"manifest": f"lessons/{x['lesson_id']}.json", "video": f"lessons/{x['lesson_id']}.mp4"} for x in
+             [{"lesson_id": f"starter-{y['topic']}"} for y in LESSONS]]
     (OUT / "index.json").write_text(json.dumps(index, indent=2))
 
 

@@ -8,30 +8,30 @@
   "format": "explainer",
   "level": "beginner",
   "language": "en",
-  "duration_s": 24.0,
+  "duration_s": 30.0,
   "segments": [
     {
       "id": "hook",
-      "end_s": 4.27
+      "end_s": 3.64
     },
     {
       "id": "setup",
-      "end_s": 10.57
+      "end_s": 9.96
     },
     {
       "id": "reveal",
-      "end_s": 17.2
+      "end_s": 15.91
     },
     {
       "id": "takeaway",
-      "end_s": 22.5
+      "end_s": 21.4
     }
   ],
   "interactions": [
     {
       "id": "i1",
       "after_segment": "setup",
-      "pause_at_s": 10.72,
+      "pause_at_s": 10.11,
       "type": "mcq",
       "question": "At 12% a year, about how long until money doubles?",
       "options": [
@@ -47,5 +47,5 @@
   "recap": "Divide 72 by the yearly rate to estimate how many years it takes to double.",
   "go_deeper": [],
   "disclaimer": "General education only, not financial advice.",
-  "version": 1
+  "version": 2
 }

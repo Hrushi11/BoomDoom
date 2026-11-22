@@ -8,30 +8,30 @@
   "format": "explainer",
   "level": "beginner",
   "language": "en",
-  "duration_s": 21.67,
+  "duration_s": 30.0,
   "segments": [
     {
       "id": "hook",
-      "end_s": 3.6
+      "end_s": 3.18
     },
     {
       "id": "setup",
-      "end_s": 8.23
+      "end_s": 8.46
     },
     {
       "id": "reveal",
-      "end_s": 14.53
+      "end_s": 14.36
     },
     {
       "id": "takeaway",
-      "end_s": 20.17
+      "end_s": 19.89
     }
   ],
   "interactions": [
     {
       "id": "i1",
       "after_segment": "setup",
-      "pause_at_s": 8.38,
+      "pause_at_s": 8.61,
       "type": "predict",
       "question": "Which colour scatters the most in air?",
       "options": [
@@ -47,5 +47,5 @@
   "recap": "Air scatters short blue light the most, so the sky looks blue.",
   "go_deeper": [],
   "disclaimer": null,
-  "version": 1
+  "version": 2
 }

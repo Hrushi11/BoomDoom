@@ -8,30 +8,30 @@
   "format": "explainer",
   "level": "beginner",
   "language": "en",
-  "duration_s": 21.67,
+  "duration_s": 30.0,
   "segments": [
     {
       "id": "hook",
-      "end_s": 3.93
+      "end_s": 3.9
     },
     {
       "id": "setup",
-      "end_s": 9.23
+      "end_s": 8.74
     },
     {
       "id": "reveal",
-      "end_s": 15.2
+      "end_s": 14.37
     },
     {
       "id": "takeaway",
-      "end_s": 20.17
+      "end_s": 18.72
     }
   ],
   "interactions": [
     {
       "id": "i1",
       "after_segment": "setup",
-      "pause_at_s": 9.38,
+      "pause_at_s": 8.89,
       "type": "mcq",
       "question": "What should replace filler words?",
       "options": [
@@ -47,5 +47,5 @@
   "recap": "Swap filler words for short pauses to sound calmer and more confident.",
   "go_deeper": [],
   "disclaimer": null,
-  "version": 1
+  "version": 2
 }

@@ -8,30 +8,30 @@
   "format": "explainer",
   "level": "beginner",
   "language": "en",
-  "duration_s": 23.33,
+  "duration_s": 30.0,
   "segments": [
     {
       "id": "hook",
-      "end_s": 4.6
+      "end_s": 4.01
     },
     {
       "id": "setup",
-      "end_s": 9.9
+      "end_s": 9.89
     },
     {
       "id": "reveal",
-      "end_s": 17.2
+      "end_s": 15.85
     },
     {
       "id": "takeaway",
-      "end_s": 21.83
+      "end_s": 20.39
     }
   ],
   "interactions": [
     {
       "id": "i1",
       "after_segment": "setup",
-      "pause_at_s": 10.05,
+      "pause_at_s": 10.04,
       "type": "mcq",
       "question": "Which STAR part deserves the most time?",
       "options": [
@@ -48,5 +48,5 @@
   "recap": "Answer behavioural questions with STAR, and spend most of your time on the Action.",
   "go_deeper": [],
   "disclaimer": null,
-  "version": 1
+  "version": 2
 }

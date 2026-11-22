@@ -125,7 +125,19 @@ class LearningRepository @Inject constructor(
     suspend fun importBundled(lessons: List<Pair<LessonManifest, String>>) {
         val now = System.currentTimeMillis()
         for ((m, assetPath) in lessons) {
-            if (dao.lesson(m.lessonId) != null) continue
+            val existing = dao.lesson(m.lessonId)
+            if (existing != null) {
+                // A newer bundled lesson (same id and video path, e.g. starters re-rendered as films) must replace the
+                // stored manifest, or the new video plays with the old pause times. The user's progress is kept.
+                val stored = runCatching { LessonJson.decodeFromString(LessonManifest.serializer(), existing.manifestJson) }.getOrNull()
+                if (existing.bundled && (stored == null || stored.version < m.version)) {
+                    dao.upsertLessons(listOf(existing.copy(
+                        concept = m.concept, level = m.level, durationS = m.durationS,
+                        manifestJson = LessonJson.encodeToString(LessonManifest.serializer(), m), videoUrl = "asset:///$assetPath",
+                    )))
+                }
+                continue
+            }
             val preset = PresetTopic.byId(m.topic?.id ?: "") ?: continue
             val topic = dao.topicByName(normalizeTopic(preset.displayName)) ?: continue // only for chosen topics
             dao.upsertLessons(listOf(LessonCacheEntity(

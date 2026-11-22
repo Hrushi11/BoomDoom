@@ -8,30 +8,30 @@
   "format": "guess_first",
   "level": "beginner",
   "language": "en",
-  "duration_s": 23.67,
+  "duration_s": 30.0,
   "segments": [
     {
       "id": "hook",
-      "end_s": 3.93
+      "end_s": 3.36
     },
     {
       "id": "setup",
-      "end_s": 10.23
+      "end_s": 11.3
     },
     {
       "id": "reveal",
-      "end_s": 16.53
+      "end_s": 17.17
     },
     {
       "id": "takeaway",
-      "end_s": 22.17
+      "end_s": 22.39
     }
   ],
   "interactions": [
     {
       "id": "i1",
       "after_segment": "setup",
-      "pause_at_s": 10.38,
+      "pause_at_s": 11.45,
       "type": "predict",
       "question": "Why did the waiters forget paid orders?",
       "options": [
@@ -47,5 +47,5 @@
   "recap": "Unfinished tasks stick in your mind. Start for 2 minutes to beat procrastination.",
   "go_deeper": [],
   "disclaimer": null,
-  "version": 1
+  "version": 2
 }

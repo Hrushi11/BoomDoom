@@ -70,3 +70,6 @@ crash.log
 
 # Session history (local notes, not committed)
 chat.md
+
+# Android release signing (build-apk.sh). Back these up: updates must be signed with the same key.
+android/keystore.properties

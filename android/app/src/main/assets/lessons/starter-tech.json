@@ -8,30 +8,30 @@
   "format": "myth_fact",
   "level": "beginner",
   "language": "en",
-  "duration_s": 23.67,
+  "duration_s": 30.0,
   "segments": [
     {
       "id": "hook",
-      "end_s": 4.27
+      "end_s": 3.65
     },
     {
       "id": "setup",
-      "end_s": 10.9
+      "end_s": 10.24
     },
     {
       "id": "reveal",
-      "end_s": 17.2
+      "end_s": 16.12
     },
     {
       "id": "takeaway",
-      "end_s": 22.17
+      "end_s": 20.73
     }
   ],
   "interactions": [
     {
       "id": "i1",
       "after_segment": "setup",
-      "pause_at_s": 11.05,
+      "pause_at_s": 10.39,
       "type": "true_false",
       "question": "A padlock means the website is safe and honest.",
       "options": [
@@ -46,5 +46,5 @@
   "recap": "HTTPS encrypts your connection, but a padlock doesn't prove a site is honest.",
   "go_deeper": [],
   "disclaimer": null,
-  "version": 1
+  "version": 2
 }

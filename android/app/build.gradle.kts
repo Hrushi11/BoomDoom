@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -14,8 +16,8 @@ android {
         applicationId = "app.boomdoom"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -30,8 +32,21 @@ android {
         }
     }
 
+    // Release signing: android/keystore.properties (git-ignored) points at the upload key. See build-apk.sh.
+    val keystoreFile = rootProject.file("keystore.properties")
+    val releaseSigning = if (keystoreFile.exists()) {
+        val ks = Properties().apply { keystoreFile.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = file(ks.getProperty("storeFile"))
+            storePassword = ks.getProperty("storePassword")
+            keyAlias = ks.getProperty("keyAlias")
+            keyPassword = ks.getProperty("keyPassword")
+        }
+    } else null
+
     buildTypes {
         release {
+            releaseSigning?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
