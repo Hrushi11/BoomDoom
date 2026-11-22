@@ -24,7 +24,7 @@ from app.config import get_settings
 from app.db import advisory_lock
 from app.domain import lifecycle
 from app.domain.lifecycle import LessonStatus
-from app.domain.sharing import is_shareable, next_format, share_key, shortfall
+from app.domain.sharing import FORMAT_MIX_VERSION, is_shareable, next_format, share_key, shortfall
 from app.errors import ApiError
 from app.models import AppUser, Job, Lesson, LessonProfile, LessonReport, Syllabus, SyllabusProgress, Topic, UserLesson
 
@@ -74,6 +74,14 @@ def check_topic_safety(name: str, goal: str | None) -> None:
     text = f"{name} {goal or ''}".lower()
     if any(term in text for term in _BLOCKED_TERMS):
         raise ApiError(422, "topic_not_allowed", "We can't make lessons on this topic")
+
+
+def lesson_mix_version() -> str:
+    """Share-pool version: lessons are only reused between users when the same engine rendered them. Without the
+    engine in the key, switching RENDERER to film kept handing out old Stickman Studio videos (5 per topic were
+    already rendered) and the film renderer never got a job. "stickman" keeps the original key."""
+    engine = get_settings().renderer
+    return FORMAT_MIX_VERSION if engine == "stickman" else f"{FORMAT_MIX_VERSION}-{engine}"
 
 
 def topic_look(topic_norm: str) -> tuple[str, str]:
@@ -195,7 +203,7 @@ def allocate(db: Session, user_id: uuid.UUID, topic: Topic, count: int) -> Plan:
     key: str | None = None
 
     if _shared(topic):
-        key = share_key(topic.name_norm, topic.level, profile.language, profile.voice_id, style)
+        key = share_key(topic.name_norm, topic.level, profile.language, profile.voice_id, style, lesson_mix_version())
         advisory_lock(db, f"share:{key}")
         mine = select(UserLesson.lesson_id).where(UserLesson.user_id == user_id)
         reuse = db.scalars(

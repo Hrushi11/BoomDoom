@@ -155,3 +155,19 @@ def test_stuck_job_is_requeued(api):
     assert sweeps.sweep_stuck()["requeued"] == 1
     drain()
     assert len(api.get("/v1/feed").json()) == 5
+
+
+def test_film_lessons_do_not_reuse_other_engines(make_api, monkeypatch):
+    # Shared lessons are reused only within one render engine: switching RENDERER must generate new lessons.
+    from app.config import get_settings
+
+    a, b = make_api(), make_api()
+    monkeypatch.setattr(get_settings(), "renderer", "stickman")
+    a.profile(PSYCH)
+    drain()
+    scripts_before = _count(Job, Job.stage == "script")
+    monkeypatch.setattr(get_settings(), "renderer", "film")
+    b.profile(PSYCH)
+    drain()
+    assert _count(Job, Job.stage == "script") > scripts_before  # new lessons generated for the film engine
+    assert not {x["lesson_id"] for x in a.get("/v1/feed").json()} & {x["lesson_id"] for x in b.get("/v1/feed").json()}
