@@ -41,6 +41,20 @@ class RetryableError(Exception):
         self.delay_s, self.count_attempt = delay_s, count_attempt
 
 
+class JobCancelled(Exception):
+    """An operator cancelled the job (POST /v1/admin/...); stop without retrying or marking it done."""
+
+
+def check_cancelled(job_id: uuid.UUID | str | None) -> None:
+    """Raise JobCancelled if the job was cancelled. Long handlers call this between their stages."""
+    if not job_id:
+        return
+    with session_scope() as db:
+        job = db.get(Job, uuid.UUID(str(job_id)))
+        if job is not None and job.status == "cancelled":
+            raise JobCancelled(str(job_id))
+
+
 class PermanentError(Exception):
     """The job can never succeed (bad input); fail it now."""
 
@@ -119,8 +133,12 @@ class Worker:
         try:
             route.handler(msg.job_id)
             self.in_job = False
+            check_cancelled(msg.job_id)  # cancelled while it ran: keep it cancelled, not done
             _set(msg.job_id, status="done", finished_at=queues.utcnow(), error=None)
             metrics.emit("job_succeeded", 1, stage=route.queue)
+        except JobCancelled:
+            self.in_job = False
+            log.info("job cancelled by operator", extra={"job_id": str(msg.job_id)})
         except WorkerShutdown:
             self.in_job = False
             _set(msg.job_id, status="queued", attempts=Job.attempts - 1)

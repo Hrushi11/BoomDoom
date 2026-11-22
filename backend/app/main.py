@@ -64,6 +64,10 @@ def create_app() -> FastAPI:
     app.include_router(meta.router)
     for r in (users.router, topics.router, lessons.router):
         app.include_router(r, prefix="/v1")
+    if s.admin_token:  # operator queue controls exist only when a token is configured
+        from app.api import admin
+
+        app.include_router(admin.router, prefix="/v1")
 
     if s.storage_backend == "local":  # serve lesson files locally; CloudFront does this on AWS
         root = Path(s.local_storage_dir)

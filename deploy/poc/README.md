@@ -69,3 +69,38 @@ terraform -chdir=infra/poc destroy   # instance, database volume, bucket, parame
 - Terraform state (local, git-ignored) contains the generated secrets and the tokens. Keep it private.
 - Only ports 80/443 are open. There is no SSH.
 - The image is private on ghcr.io. The token on the host can only read packages.
+
+## Queue controls (admin API)
+
+Lessons are made one job at a time per worker (script jobs, then render jobs; three render workers run side by side).
+To see and steer that queue, use the admin endpoints. They exist only when `ADMIN_TOKEN` is set (Terraform creates one).
+
+```bash
+API=https://<ip-with-dashes>.sslip.io
+TOKEN=$(cd infra/poc && terraform output -raw admin_token)
+H="X-Admin-Token: $TOKEN"
+
+curl -s -H "$H" "$API/v1/admin/queue" | jq                     # running + queued jobs, queued ones in pick-up order
+curl -s -H "$H" "$API/v1/admin/queue?stage=render" | jq        # only renders
+
+# Priority: move one job, or everything of a user / topic, to the front of its queue
+curl -s -X POST -H "$H" "$API/v1/admin/jobs/<job_id>/prioritize"
+curl -s -X POST -H "$H" -H 'content-type: application/json' -d '{"user_id": "<uuid>"}' "$API/v1/admin/queue/prioritize"
+
+# Cancel: queued jobs are removed; running ones stop at their next stage and never publish
+curl -s -X POST -H "$H" "$API/v1/admin/jobs/<job_id>/cancel?include_running=true"
+curl -s -X POST -H "$H" -H 'content-type: application/json' -d '{"topic_id": "<uuid>"}' "$API/v1/admin/queue/cancel"
+curl -s -X POST -H "$H" -H 'content-type: application/json' -d '{"stage": "render"}' "$API/v1/admin/queue/cancel"  # clear all queued renders
+```
+
+Cancelled lessons are marked failed and hidden. The refill sweep (every 10 min) may allocate replacement lessons for
+topics that are still active, because each topic keeps 5 lessons in stock.
+
+**Deploy files.** `docker-compose.yml` and `boot.sh` ship inside the image (`/srv/deploy`), and `boot.sh` copies
+them out after each pull, so changes to them deploy with a push. Hosts created before this change need their
+`boot.sh` replaced once, after the first image that contains `/srv/deploy` is built:
+
+```bash
+aws ssm send-command --region us-west-2 --instance-ids "$(cd infra/poc && terraform output -raw instance_id)" \
+  --document-name AWS-RunShellScript --parameters 'commands=["cd /opt/boomdoom && . ./host.env && docker pull -q $BOOMDOOM_IMAGE && docker run --rm --entrypoint cat $BOOMDOOM_IMAGE /srv/deploy/boot.sh > boot.sh.new && [ -s boot.sh.new ] && mv boot.sh.new boot.sh && chmod +x boot.sh && bash boot.sh"]'
+```

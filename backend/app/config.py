@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     film_voice_id: str = "af_heart"
     film_tmp_dir: str = "/tmp/boomdoom-films"
     film_render_jobs: int = 0  # parallel Chromium renderers (0 = the skill's default)
+    film_review_rounds: int = 1  # vision reviews of the stills, ~2 min each (2 = slower, a little more polish)
+
+    # ---- operator ----
+    admin_token: str = ""  # secret; enables /v1/admin (queue controls). Empty = those endpoints do not exist
 
     # ---- product rules ----
     target_stock: int = 5

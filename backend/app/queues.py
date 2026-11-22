@@ -113,7 +113,7 @@ class DbQueue:
                         update queue_message set visible_at = now() + make_interval(secs => :v),
                                receive_count = receive_count + 1
                         where id in (select id from queue_message where queue = :q and visible_at <= now()
-                                     order by id limit :n for update skip locked)
+                                     order by visible_at, id limit :n for update skip locked)
                         returning id, body, receive_count
                         """
                     ),

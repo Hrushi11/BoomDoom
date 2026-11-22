@@ -4,3 +4,9 @@ output "api_url" { value = "https://${local.api_host}" }
 output "instance_id" { value = aws_instance.host.id }
 output "image" { value = local.image }
 output "lessons_bucket" { value = aws_s3_bucket.lessons.bucket }
+
+output "admin_token" {
+  description = "X-Admin-Token for the /v1/admin queue controls"
+  value       = random_password.admin.result
+  sensitive   = true
+}

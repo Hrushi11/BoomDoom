@@ -60,6 +60,15 @@ services:
     <<: *app
     command: python -m workers render
     stop_grace_period: 120s
+    # Films spend most of their ~9 min waiting on OpenAI (plan, code, two vision reviews), so three run side by side
+    # on the 4-vCPU host; each renders with 2 Chromium processes instead of 4. Jobs are claimed atomically.
+    deploy:
+      replicas: 3
+    environment:
+      DATABASE_URL: postgresql+psycopg://boomdoom:${POSTGRES_PASSWORD}@db:5432/boomdoom
+      QUEUE_BACKEND: db
+      STORAGE_BACKEND: s3
+      FILM_RENDER_JOBS: "2"
 
   scheduler:
     <<: *app

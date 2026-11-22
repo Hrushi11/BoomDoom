@@ -19,7 +19,7 @@ from app.queues import utcnow
 from app.services import generation, push
 from app.services.manifest import build_manifest
 from app.storage import get_storage, lesson_prefix
-from workers.common import PermanentError
+from workers.common import PermanentError, check_cancelled
 from workers.render_worker.media import Media
 from workers.render_worker.pause_times import caption_words, interaction_pauses, segment_end_times
 from workers.render_worker.renderers import Renderer
@@ -59,6 +59,7 @@ def handle(job_id: uuid.UUID, renderer: Renderer, media: Media) -> None:
             "segments": [{"id": s["id"], "narration": s["narration"]} for s in script["segments"]],
             "concept": lesson.concept,
             "topic_name": topic_name,
+            "job_id": str(job_id),
         }
 
     root = Path(get_settings().render_tmp_dir)
@@ -82,6 +83,7 @@ def handle(job_id: uuid.UUID, renderer: Renderer, media: Media) -> None:
         media.compress(result.video, out)
         media.thumbnail(out, thumb, duration)
 
+        check_cancelled(job_id)  # an operator cancelled it while it rendered: do not publish
         prefix = lesson_prefix(lesson_id, version)
         storage = get_storage()
         with session_scope() as db:

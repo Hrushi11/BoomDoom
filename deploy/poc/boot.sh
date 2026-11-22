@@ -22,5 +22,18 @@ export $(grep -E '^POSTGRES_PASSWORD=' .env | xargs)
 if ! docker compose pull --quiet; then
   echo "image not available yet (first GitHub Actions build still running?)"; exit 0
 fi
+
+# The deploy files ship inside the image (/srv/deploy), so a push to main also updates docker-compose.yml
+# (worker counts, env) and this script. Missing or empty copies (older images) leave the current files alone.
+for f in docker-compose.yml boot.sh; do
+  if docker run --rm --entrypoint cat "$BOOMDOOM_IMAGE" "/srv/deploy/$f" > "$f.new" 2>/dev/null && [ -s "$f.new" ]; then
+    if ! cmp -s "$f.new" "$f"; then
+      mv "$f.new" "$f"; echo "updated $f from the image"
+    fi
+  fi
+  rm -f "$f.new"
+done
+chmod +x boot.sh
+
 docker compose up -d --remove-orphans
 docker image prune -f >/dev/null

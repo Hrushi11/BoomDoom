@@ -56,6 +56,12 @@ resource "aws_ssm_parameter" "ghcr_token" {
   value = var.ghcr_token
 }
 
+# Operator token for /v1/admin (queue controls). Read it with: terraform output -raw admin_token
+resource "random_password" "admin" {
+  length  = 40
+  special = false
+}
+
 resource "aws_ssm_parameter" "env" {
   name = "/${local.name}/env"
   type = "SecureString"
@@ -65,6 +71,7 @@ resource "aws_ssm_parameter" "env" {
     "AWS_REGION=${var.region}",
     "LESSONS_BUCKET=${aws_s3_bucket.lessons.bucket}",
     "RENDERER=${var.renderer}",
+    "ADMIN_TOKEN=${random_password.admin.result}",
     "POSTGRES_PASSWORD=${random_password.postgres.result}",
     "OPENAI_API_KEY=${var.openai_api_key}",
     "OPENAI_DAILY_COST_CAP_USD=${var.openai_daily_cost_cap_usd}",

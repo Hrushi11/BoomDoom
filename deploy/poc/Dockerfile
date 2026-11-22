@@ -30,6 +30,8 @@ RUN pip install --no-cache-dir .
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini ./
 COPY config ./config
+# The host's boot.sh copies these out of each new image, so compose changes deploy with a push.
+COPY deploy/poc/docker-compose.yml deploy/poc/boot.sh /srv/deploy/
 
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /tmp/boomdoom-render && chown app /tmp/boomdoom-render \

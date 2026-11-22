@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
@@ -58,6 +58,8 @@ def test_film_renderer_returns_lesson_words_on_picture_clock(monkeypatch, tmp_pa
         tools=renderer.tools,
         llm=renderer.llm_factory.return_value,
         narration=["Need it again?", "Look here.", "Reuse it!"],
+        critique_rounds=1,
+        on_stage=ANY,  # checks for an operator cancel between stages
     )
     assert rendered.video == result.video and rendered.project["duration"] == 30
     words = caption_words(rendered.project)

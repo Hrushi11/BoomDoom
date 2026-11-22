@@ -154,12 +154,16 @@ class FilmRenderer:
             jobs=s.film_render_jobs,
         )
         self.llm_factory = FilmLLM
+        self.review_rounds = s.film_review_rounds
 
     def render(self, params: dict, workdir: Path) -> RenderResult:
         from workers.film_worker.director import make_film
 
         sentences = split_sentences(params.get("segments") or [{"narration": params["script"]}])
         topic = params.get("topic_name") or params["topic"]
+        from workers.common import check_cancelled
+
+        job_id = params.get("job_id")
         result = make_film(
             topic,
             params.get("concept") or params["topic"],
@@ -167,6 +171,8 @@ class FilmRenderer:
             tools=self.tools,
             llm=self.llm_factory(),
             narration=sentences,
+            critique_rounds=self.review_rounds,
+            on_stage=lambda stage: check_cancelled(job_id),  # an operator cancel stops it at the next stage
         )
         log.info(
             "film rendered",

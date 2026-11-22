@@ -8,6 +8,8 @@
 !backend/alembic.ini
 !vendor/stickman-studio/**
 !vendor/stickman-skill/**
+!deploy/poc/docker-compose.yml
+!deploy/poc/boot.sh
 **/__pycache__
 **/*.pyc
 vendor/stickman-studio/.venv
