@@ -72,6 +72,7 @@ resource "aws_ssm_parameter" "env" {
     "LESSONS_BUCKET=${aws_s3_bucket.lessons.bucket}",
     "RENDERER=${var.renderer}",
     "ADMIN_TOKEN=${random_password.admin.result}",
+    "ADMIN_PASSWORD=${var.admin_password}",
     "POSTGRES_PASSWORD=${random_password.postgres.result}",
     "OPENAI_API_KEY=${var.openai_api_key}",
     "OPENAI_DAILY_COST_CAP_USD=${var.openai_daily_cost_cap_usd}",

@@ -94,7 +94,8 @@ class Settings(BaseSettings):
     film_review_rounds: int = 1  # vision reviews of the stills, ~2 min each (2 = slower, a little more polish)
 
     # ---- operator ----
-    admin_token: str = ""  # secret; enables /v1/admin (queue controls). Empty = those endpoints do not exist
+    admin_password: str = ""  # secret; sign-in for /trackVideoGen (queue tracker). Empty = falls back to admin_token
+    admin_token: str = ""  # secret; X-Admin-Token for scripts. With neither set, the admin endpoints do not exist
 
     # ---- product rules ----
     target_stock: int = 5

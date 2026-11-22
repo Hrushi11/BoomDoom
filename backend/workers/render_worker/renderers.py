@@ -161,8 +161,6 @@ class FilmRenderer:
 
         sentences = split_sentences(params.get("segments") or [{"narration": params["script"]}])
         topic = params.get("topic_name") or params["topic"]
-        from workers.common import check_cancelled
-
         job_id = params.get("job_id")
         result = make_film(
             topic,
@@ -172,13 +170,20 @@ class FilmRenderer:
             llm=self.llm_factory(),
             narration=sentences,
             critique_rounds=self.review_rounds,
-            on_stage=lambda stage: check_cancelled(job_id),  # an operator cancel stops it at the next stage
+            on_stage=lambda stage: _stage(job_id, stage),  # progress + an operator cancel stops it here
         )
         log.info(
             "film rendered",
             extra={"notes": result.notes[:6], "tokens": result.tokens, "issues": len(result.audit_issues)},
         )
         return RenderResult(result.video, film_project(result))
+
+
+def _stage(job_id, stage: str) -> None:
+    from workers.common import check_cancelled, set_progress
+
+    set_progress(job_id, stage)
+    check_cancelled(job_id)
 
 
 def split_sentences(segments: list[dict]) -> list[str]:

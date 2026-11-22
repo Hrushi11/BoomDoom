@@ -45,6 +45,16 @@ class JobCancelled(Exception):
     """An operator cancelled the job (POST /v1/admin/...); stop without retrying or marking it done."""
 
 
+def set_progress(job_id: uuid.UUID | str | None, step: str) -> None:
+    """Record the current step of a running job (best effort; shown on /trackVideoGen)."""
+    if not job_id:
+        return
+    try:
+        _set(uuid.UUID(str(job_id)), progress=step[:120])
+    except Exception:
+        log.exception("progress update failed")
+
+
 def check_cancelled(job_id: uuid.UUID | str | None) -> None:
     """Raise JobCancelled if the job was cancelled. Long handlers call this between their stages."""
     if not job_id:

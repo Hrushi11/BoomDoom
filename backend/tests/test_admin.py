@@ -88,3 +88,40 @@ def test_running_job_cancelled_midway_stays_cancelled(admin, make_api):
     with session_scope() as db:
         assert db.get(Job, job_id).status == "cancelled"
     assert queues.get_queue().receive("script-jobs", 30, wait_s=0) == []
+
+
+@pytest.fixture
+def tracker(monkeypatch):
+    monkeypatch.setattr(get_settings(), "admin_token", "")
+    monkeypatch.setattr(get_settings(), "admin_password", "open sesame")
+    from app.main import create_app
+
+    with TestClient(create_app(), base_url="https://testserver") as c:
+        yield c
+
+
+def test_tracker_password_login_keeps_a_sliding_session(tracker):
+    page = tracker.get("/trackVideoGen")
+    assert page.status_code == 200 and "video generation" in page.text
+    assert tracker.get("/v1/admin/queue").status_code == 401  # not signed in
+    assert tracker.post("/v1/admin/login", json={"password": "nope"}).status_code == 401
+    r = tracker.post("/v1/admin/login", json={"password": "open sesame"})
+    assert r.status_code == 200
+    cookie = r.headers["set-cookie"]
+    assert "HttpOnly" in cookie and "Secure" in cookie and "samesite=strict" in cookie.lower()
+    q = tracker.get("/v1/admin/queue")  # the cookie alone is enough, and it is renewed
+    assert q.status_code == 200 and "boomdoom_admin=" in q.headers.get("set-cookie", "")
+    tracker.post("/v1/admin/logout")
+    assert tracker.get("/v1/admin/queue").status_code == 401
+
+
+def test_history_lists_finished_films_with_s3_links(admin, make_api):
+    from tests.fakes import drain
+
+    make_api().profile(_topic("Topic Alpha"))
+    drain()
+    rows = admin.get("/v1/admin/history", headers=H).json()
+    assert rows and all(r["status"] == "done" for r in rows)
+    links = rows[0]["links"]
+    assert links["s3_key"].startswith("lessons/") and links["s3_key"].endswith("lesson_720p.mp4")
+    assert all(links[k] for k in ("video", "thumb", "manifest", "project"))

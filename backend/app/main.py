@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import lessons, meta, topics, users
@@ -64,10 +65,16 @@ def create_app() -> FastAPI:
     app.include_router(meta.router)
     for r in (users.router, topics.router, lessons.router):
         app.include_router(r, prefix="/v1")
-    if s.admin_token:  # operator queue controls exist only when a token is configured
-        from app.api import admin
+    from app.api import admin
 
+    if admin.enabled():  # operator queue controls exist only when a password or token is configured
+        app.include_router(admin.auth_router, prefix="/v1")
         app.include_router(admin.router, prefix="/v1")
+        tracker = (Path(__file__).parent / "static" / "track_video_gen.html").read_text()
+
+        @app.get("/trackVideoGen", include_in_schema=False)
+        def track_video_gen() -> HTMLResponse:
+            return HTMLResponse(tracker, headers={"Cache-Control": "no-store"})
 
     if s.storage_backend == "local":  # serve lesson files locally; CloudFront does this on AWS
         root = Path(s.local_storage_dir)

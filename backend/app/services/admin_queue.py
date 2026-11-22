@@ -57,6 +57,10 @@ def overview(db: Session, stage: str | None = None, limit: int = 200) -> dict:
                 "topic": topic,
                 "topic_id": str(job.topic_id) if job.topic_id else None,
                 "user_id": str(job.user_id) if job.user_id else None,
+                "lesson_id": str(job.lesson_id) if job.lesson_id else None,
+                "step": job.progress if job.status == "running" else None,
+                "created_at": job.created_at.isoformat(),
+                "age_s": round((now - job.created_at).total_seconds()),
                 "waiting_s": round((now - job.updated_at).total_seconds()),
             }
         )
@@ -147,3 +151,50 @@ def cancel(db: Session, *, job_id=None, user_id=None, topic_id=None, stage=None,
         if topic and topic.status == "preparing":
             generation.refresh_topic_status(db, topic)
     return {"cancelled": len(jobs), "running_stopping": running}
+
+
+def history(db: Session, limit: int = 300) -> list[dict]:
+    """Every finished render (newest first) with signed S3 links to its video, thumbnail, manifest and
+    project.json (the film's notes, audit issues and token usage)."""
+    from app.cdn import sign_url
+
+    rows = db.execute(
+        select(Job, Lesson, Topic.name)
+        .join(Lesson, Lesson.id == Job.lesson_id)
+        .outerjoin(Topic, Topic.id == Job.topic_id)
+        .where(Job.stage == "render", Job.status.not_in(ACTIVE))
+        .order_by(Job.updated_at.desc())
+        .limit(limit)
+    ).all()
+    out = []
+    for job, lesson, topic in rows:
+        links = {}
+        if lesson.video_key:
+            prefix = lesson.video_key.rsplit("/", 1)[0] + "/"
+            links = {
+                "video": sign_url(lesson.video_key),
+                "thumb": sign_url(lesson.thumb_key) if lesson.thumb_key else None,
+                "manifest": sign_url(prefix + "manifest.json"),
+                "project": sign_url(prefix + "project.json"),
+                "s3_key": lesson.video_key,
+            }
+        out.append(
+            {
+                "job_id": str(job.id),
+                "status": job.status,
+                "attempts": job.attempts,
+                "error": job.error,
+                "lesson_id": str(lesson.id),
+                "lesson": lesson.concept,
+                "lesson_status": lesson.status,
+                "topic": topic,
+                "user_id": str(job.user_id) if job.user_id else None,
+                "created_at": job.created_at.isoformat(),
+                "finished_at": (job.finished_at or job.updated_at).isoformat(),
+                "total_s": round(((job.finished_at or job.updated_at) - job.created_at).total_seconds()),
+                "render_s": lesson.render_seconds,
+                "duration_s": lesson.duration_s,
+                "links": links,
+            }
+        )
+    return out

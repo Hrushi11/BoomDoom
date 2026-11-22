@@ -48,3 +48,10 @@ variable "ghcr_token" {
   description = "Classic GitHub token with read:packages (host pulls the private image). Set it, then re-apply."
   default     = "unset"
 }
+
+variable "admin_password" {
+  description = "Sign-in password for /trackVideoGen (the video generation tracker)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

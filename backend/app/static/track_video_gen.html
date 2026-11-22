@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BoomDoom · Video generation</title>
+<style>
+  :root {
+    --bg: #0e0f13; --card: #171922; --raised: #1f2230; --line: rgba(245,245,247,.08);
+    --text: #f5f5f7; --text2: #a1a1aa; --muted: #7c7f8a;
+    --accent: #2ec4b6; --boom: #ff6b3d; --good: #4cc38a; --bad: #e5484d; --warn: #ffb020;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 24px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; }
+  h1 span { color: var(--boom); }
+  h2 { font-size: 15px; font-weight: 600; margin: 32px 0 12px; display: flex; align-items: baseline; gap: 8px; }
+  h2 small { color: var(--muted); font-weight: 400; font-size: 13px; }
+  .meta { color: var(--muted); font-size: 12px; margin-left: auto; display: flex; gap: 12px; align-items: center; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 96px; }
+  .stat b { display: block; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--text2); font-size: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .card .t { font-weight: 600; }
+  .card .s { color: var(--text2); font-size: 12px; margin-top: 2px; }
+  .steps { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 14px 0 6px; }
+  .steps i { height: 4px; border-radius: 2px; background: var(--raised); }
+  .steps i.done { background: var(--accent); opacity: .5; }
+  .steps i.now { background: var(--accent); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text2); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; background: var(--raised); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; color: var(--text2); white-space: nowrap; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px; background: var(--raised); color: var(--text2); }
+  .badge.done { color: var(--good); } .badge.failed_final { color: var(--bad); } .badge.cancelled { color: var(--muted); }
+  .badge.running { color: var(--accent); } .badge.queued { color: var(--warn); }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  .links a { margin-right: 10px; white-space: nowrap; }
+  .thumb { width: 36px; height: 64px; object-fit: cover; border-radius: 6px; background: var(--raised); display: block; }
+  button { font: inherit; font-size: 12px; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: rgba(245,245,247,.2); }
+  button.danger { color: var(--bad); }
+  .err { color: var(--bad); font-size: 12px; max-width: 360px; }
+  .empty { color: var(--muted); padding: 16px; background: var(--card); border: 1px dashed var(--line); border-radius: 14px; }
+  .filters { display: flex; gap: 6px; margin-left: auto; }
+  .filters button.on { border-color: var(--accent); color: var(--accent); }
+  #login { max-width: 420px; margin: 12vh auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
+  #login input { width: 100%; margin: 12px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--raised); color: var(--text); font: inherit; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--raised); border: 1px solid var(--line); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: opacity .2s; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 720px) { .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<div id="login" hidden>
+  <h1>Bo<span>o</span>mDoom video generation</h1>
+  <p style="color:var(--text2)">Sign in once. This browser stays signed in while you use the tracker.</p>
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+  <button id="save">Sign in</button>
+  <div id="loginErr" class="err"></div>
+</div>
+
+<main id="app" hidden>
+  <header>
+    <h1>Bo<span>o</span>mDoom video generation</h1>
+    <div class="stats" id="stats"></div>
+    <div class="meta"><span id="updated">–</span><button id="pause">Pause</button><button id="logout">Log out</button></div>
+  </header>
+
+  <h2>Rendering now <small id="runningNote"></small></h2>
+  <div id="running" class="cards"></div>
+
+  <h2>Up next <small>in pick-up order</small></h2>
+  <div id="queue"></div>
+
+  <h2>History <small id="historyNote"></small>
+    <span class="filters" id="filters">
+      <button data-f="all" class="on">All</button><button data-f="done">Done</button>
+      <button data-f="failed_final">Failed</button><button data-f="cancelled">Cancelled</button>
+    </span>
+  </h2>
+  <div id="history"></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const STEPS = ["voice", "script", "plan", "code", "review", "render", "compose"];
+let paused = false, filter = "all", lastHistory = [];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const dur = (s) => s == null ? "–" : s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+const when = (iso) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const short = (id) => id ? id.slice(0, 8) : "–";
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); }
+
+async function api(path, opts = {}) {
+  // The session cookie (HttpOnly, renewed by the server on every call) is sent automatically.
+  const r = await fetch(path, { credentials: "same-origin", ...opts, headers: { "content-type": "application/json", ...(opts.headers || {}) } });
+  if (r.status === 401) { showLogin(); throw new Error("unauthorized"); }
+  if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b?.error?.message || `HTTP ${r.status}`); }
+  return r.json();
+}
+
+function showLogin(msg = "") { $("app").hidden = true; $("login").hidden = false; $("loginErr").textContent = msg; }
+function showApp() { $("login").hidden = true; $("app").hidden = false; }
+
+function renderStats(q, h) {
+  const c = q.counts || {};
+  const get = (stage, st) => (c[stage] || {})[st] || 0;
+  const done = h.filter((x) => x.status === "done").length, failed = h.filter((x) => x.status === "failed_final").length;
+  const items = [
+    [get("render", "running"), "rendering"], [get("render", "queued"), "renders queued"],
+    [get("script", "running") + get("script", "queued") + get("syllabus", "running") + get("syllabus", "queued"), "scripts in progress"],
+    [done, "films made"], [failed, "failed"],
+  ];
+  $("stats").innerHTML = items.map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
+}
+
+function renderRunning(jobs) {
+  const run = jobs.filter((j) => j.status === "running" && j.stage === "render");
+  const other = jobs.filter((j) => j.status === "running" && j.stage !== "render");
+  $("runningNote").textContent = other.length ? `${other.length} script job${other.length > 1 ? "s" : ""} also running` : "";
+  if (!run.length) { $("running").innerHTML = `<div class="empty">No film is rendering right now.</div>`; return; }
+  $("running").innerHTML = run.map((j) => {
+    const at = STEPS.indexOf(j.step);
+    const bars = STEPS.map((_, i) => `<i class="${i < at ? "done" : i === at ? "now" : ""}"></i>`).join("");
+    return `<div class="card">
+      <div class="t">${esc(j.lesson || "–")}</div>
+      <div class="s">${esc(j.topic || "")} · user ${short(j.user_id)} · attempt ${j.attempts}</div>
+      <div class="steps">${bars}</div>
+      <div class="row"><span>${esc(j.step || "starting")}</span><span>${dur(j.age_s)} since queued</span></div>
+      <div class="row" style="margin-top:10px"><span class="mono">${short(j.job_id)}</span>
+        <button class="danger" onclick="act('/v1/admin/jobs/${j.job_id}/cancel?include_running=true','Stopping at its next step')">Stop</button></div>
+    </div>`;
+  }).join("");
+}
+
+function renderQueue(jobs) {
+  const q = jobs.filter((j) => j.status === "queued");
+  if (!q.length) { $("queue").innerHTML = `<div class="empty">Nothing is waiting.</div>`; return; }
+  $("queue").innerHTML = `<table><thead><tr><th>#</th><th>Stage</th><th>Lesson</th><th class="hide-sm">Topic</th><th class="hide-sm">User</th><th>Waiting</th><th></th></tr></thead><tbody>` +
+    q.map((j) => `<tr>
+      <td class="num">${j.position ?? "–"}</td><td><span class="badge queued">${esc(j.stage)}</span></td>
+      <td>${esc(j.lesson || "(syllabus)")}</td><td class="hide-sm">${esc(j.topic || "")}</td>
+      <td class="hide-sm mono">${short(j.user_id)}</td><td class="num">${dur(j.age_s)}</td>
+      <td style="white-space:nowrap"><button onclick="act('/v1/admin/jobs/${j.job_id}/prioritize','Moved to the front')">Prioritize</button>
+        <button class="danger" onclick="act('/v1/admin/jobs/${j.job_id}/cancel','Cancelled')">Cancel</button></td></tr>`).join("") +
+    `</tbody></table>`;
+}
+
+function renderHistory() {
+  const rows = lastHistory.filter((h) => filter === "all" || h.status === filter);
+  $("historyNote").textContent = `${lastHistory.length} finished so far`;
+  if (!rows.length) { $("history").innerHTML = `<div class="empty">Nothing here yet.</div>`; return; }
+  $("history").innerHTML = `<table><thead><tr><th></th><th>Finished</th><th>Status</th><th>Lesson</th><th class="hide-sm">Topic</th><th>Render</th><th class="hide-sm">Total</th><th>Files (S3)</th></tr></thead><tbody>` +
+    rows.map((h) => {
+      const L = h.links || {};
+      const files = L.video ? `<span class="links"><a href="${esc(L.video)}" target="_blank" rel="noopener">Watch</a><a href="${esc(L.thumb)}" target="_blank" rel="noopener">Thumbnail</a><a href="${esc(L.manifest)}" target="_blank" rel="noopener">Manifest</a><a href="${esc(L.project)}" target="_blank" rel="noopener">project.json</a></span><div class="mono" title="S3 key">${esc(L.s3_key)}</div>` : (h.error ? `<div class="err">${esc(h.error)}</div>` : "–");
+      return `<tr>
+        <td>${L.thumb ? `<a href="${esc(L.video)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(L.thumb)}" alt="" loading="lazy"></a>` : ""}</td>
+        <td class="num">${when(h.finished_at)}</td><td><span class="badge ${esc(h.status)}">${esc(h.status.replace("_final", ""))}</span>${h.attempts > 1 ? ` <span class="mono">×${h.attempts}</span>` : ""}</td>
+        <td>${esc(h.lesson)}<div class="mono">${short(h.lesson_id)} · user ${short(h.user_id)}</div></td>
+        <td class="hide-sm">${esc(h.topic || "")}</td><td class="num">${dur(h.render_s)}</td><td class="num hide-sm">${dur(h.total_s)}</td><td>${files}</td></tr>`;
+    }).join("") + `</tbody></table>`;
+}
+
+async function act(path, msg) {
+  try { await api(path, { method: "POST" }); toast(msg); refresh(true); } catch (e) { if (e.message !== "unauthorized") toast(e.message); }
+}
+
+let historyAt = 0;
+async function refresh(force = false) {
+  if (paused && !force) return;
+  try {
+    const q = await api("/v1/admin/queue");
+    if (force || Date.now() - historyAt > 30000) { lastHistory = await api("/v1/admin/history?limit=1000"); historyAt = Date.now(); }
+    showApp(); renderStats(q, lastHistory); renderRunning(q.jobs); renderQueue(q.jobs); renderHistory();
+    $("updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) { if (e.message !== "unauthorized") $("updated").textContent = `Refresh failed: ${e.message}`; }
+}
+
+$("save").onclick = async () => {
+  const r = await fetch("/v1/admin/login", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password: $("password").value }) });
+  if (!r.ok) { $("loginErr").textContent = "Wrong password."; return; }
+  $("password").value = ""; $("loginErr").textContent = ""; historyAt = 0; refresh(true);
+};
+$("password").addEventListener("keydown", (e) => { if (e.key === "Enter") $("save").click(); });
+$("logout").onclick = async () => { await fetch("/v1/admin/logout", { method: "POST", credentials: "same-origin" }); showLogin(); };
+$("pause").onclick = () => { paused = !paused; $("pause").textContent = paused ? "Resume" : "Pause"; };
+$("filters").onclick = (e) => { const f = e.target.dataset.f; if (!f) return; filter = f; [...$("filters").children].forEach((b) => b.classList.toggle("on", b.dataset.f === f)); renderHistory(); };
+
+refresh(true); // shows the sign-in form if there is no valid session
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
