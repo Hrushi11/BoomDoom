@@ -1,6 +1,21 @@
-# BoomDoom
+<p align="center">
+  <img src="designs/boomdoom_github_banner.png" width="100%" alt="BoomDoom: Turn doom into boom.">
+</p>
 
-Doom-scroll awareness for Android: count reels against a daily budget (the red line), check in every *n* reels, classify what you watched **on the phone**, and swap scrolling for short interactive stickman lessons.
+<p align="center">Doom-scroll awareness for Android that swaps some of your Reels time for 30-second stickman lessons.</p>
+
+<p align="center">
+  <img alt="Android" src="https://img.shields.io/badge/Android-Kotlin%20%2B%20Compose-2EC4B6">
+  <img alt="Backend" src="https://img.shields.io/badge/Backend-FastAPI%20%2B%20Postgres-FF6B3D">
+  <img alt="On-device ML" src="https://img.shields.io/badge/On--device%20ML-ONNX%20Runtime-14151A">
+  <img alt="Privacy" src="https://img.shields.io/badge/Feed%20data-never%20leaves%20the%20phone-0E8A78">
+</p>
+
+- **The red line.** A thin budget bar sits over Instagram Reels and counts every reel against your daily budget.
+- **Check-ins, not locks.** Every few reels BoomDoom shows what you've been watching and offers a quick lesson instead.
+- **On-device understanding.** Reels are classified (comedy, finance, rage-bait, ads...) on the phone. Nothing about
+  your feed is ever uploaded.
+- **Stickman lessons.** Short 9:16 films written by GPT and animated in code, with voice, captions and quiz pauses.
 
 | Doc | What it covers |
 |---|---|
@@ -10,6 +25,78 @@ Doom-scroll awareness for Android: count reels against a daily budget (the red l
 | [`prompts_for_design.md`](prompts_for_design.md), [`designs/`](designs) | Visual direction |
 
 **Core rule:** feed data never leaves the phone. The backend only sees learning preferences and lesson events. This is enforced in code: `./gradlew checkFeedIsolation` on Android, and request schemas that reject unknown fields on the backend.
+
+## Designs
+
+### Onboarding
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="designs/01.png" width="100%" alt="Welcome"><br><sub>Welcome</sub></td>
+    <td align="center" width="33%"><img src="designs/02.png" width="100%" alt="Your scroll budget"><br><sub>Your scroll budget</sub></td>
+    <td align="center" width="33%"><img src="designs/04.png" width="100%" alt="What to see less of"><br><sub>What to see less of</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="designs/05.png" width="100%" alt="Topics to learn"><br><sub>Topics to learn</sub></td>
+    <td align="center" width="33%"><img src="designs/06.png" width="100%" alt="A 45-second first lesson"><br><sub>A 45-second first lesson</sub></td>
+    <td align="center" width="33%"><img src="designs/07.png" width="100%" alt="Permissions"><br><sub>Permissions</sub></td>
+  </tr>
+</table>
+
+### While you scroll
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="designs/v1.png" width="100%" alt="The red line over Reels"><br><sub>The red line over Reels</sub></td>
+    <td align="center" width="33%"><img src="designs/v4.png" width="100%" alt="A flagged reel"><br><sub>A flagged reel</sub></td>
+    <td align="center" width="33%"><img src="designs/v5.png" width="100%" alt="Check-in card"><br><sub>Check-in card</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="designs/v6.png" width="100%" alt="Understood on this phone"><br><sub>Understood on this phone</sub></td>
+    <td align="center" width="33%"><img src="designs/H2.png" width="100%" alt="Over budget"><br><sub>Over budget</sub></td>
+    <td align="center" width="33%"><img src="designs/h3.png" width="100%" alt="Screen understanding off"><br><sub>Screen understanding off</sub></td>
+  </tr>
+</table>
+
+### Home and Insights
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="designs/H1.png" width="100%" alt="Home"><br><sub>Home</sub></td>
+    <td align="center" width="33%"><img src="designs/i1.png" width="100%" alt="Today"><br><sub>Today</sub></td>
+    <td align="center" width="33%"><img src="designs/i3.png" width="100%" alt="Last 7 days"><br><sub>Last 7 days</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="designs/i2.png" width="100%" alt="Fix a label"><br><sub>Fix a label</sub></td>
+    <td align="center" width="33%"><img src="designs/l8.png" width="100%" alt="Suggested topics"><br><sub>Suggested topics</sub></td>
+    <td align="center" width="33%"><img src="designs/s2.png" width="100%" alt="Notifications"><br><sub>Notifications</sub></td>
+  </tr>
+</table>
+
+### Learn
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="designs/l1.png" width="100%" alt="Learn"><br><sub>Learn</sub></td>
+    <td align="center" width="33%"><img src="designs/l2.png" width="100%" alt="Lesson player"><br><sub>Lesson player</sub></td>
+    <td align="center" width="33%"><img src="designs/l3.png" width="100%" alt="Predict the answer"><br><sub>Predict the answer</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="designs/l4.png" width="100%" alt="True or false"><br><sub>True or false</sub></td>
+    <td align="center" width="33%"><img src="designs/l5.png" width="100%" alt="Saved to Learned"><br><sub>Saved to Learned</sub></td>
+    <td align="center" width="33%"><img src="designs/l6.png" width="100%" alt="Learned"><br><sub>Learned</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="designs/l7.png" width="100%" alt="My topics"><br><sub>My topics</sub></td>
+    <td align="center" width="33%"><img src="designs/l9.png" width="100%" alt="Report a mistake"><br><sub>Report a mistake</sub></td>
+    <td align="center" width="33%"><img src="designs/s1.png" width="100%" alt="Keep your lessons"><br><sub>Keep your lessons</sub></td>
+  </tr>
+</table>
+
+### You
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="designs/y1.png" width="100%" alt="You"><br><sub>You</sub></td>
+    <td align="center" width="33%"><img src="designs/y2.png" width="100%" alt="Scrolling goals"><br><sub>Scrolling goals</sub></td>
+    <td align="center" width="33%"><img src="designs/y4.png" width="100%" alt="Privacy and data"><br><sub>Privacy and data</sub></td>
+  </tr>
+</table>
 
 ## Repository layout
 
@@ -73,6 +160,32 @@ Android Back to return to the screen underneath.
 The 8 starter lessons in `app/src/main/assets/lessons` come from `tools/make_starter_lessons.py`. They are silent
 placeholder videos with timed captions until real Stickman Studio renders replace them. The font is Plus Jakarta Sans
 (OFL; licence in `core/designsystem`).
+
+## Build a downloadable APK
+
+```bash
+cd android
+./build-apk.sh --create-key          # one time: make the release key + keystore.properties
+./build-apk.sh --v0.2.0              # set version 0.2.0 (versionCode +1) → dist/BoomDoom-v0.2.0.apk
+./build-apk.sh --v0.2.0 --install    # ...and install on the phone connected over adb
+./build-apk.sh --demo                # demo flavour instead → dist/BoomDoom-v<version>-demo.apk
+./build-apk.sh                       # rebuild the current version (asks before overwriting)
+```
+
+- Signed with the release key `~/.android/boomdoom-release.jks`; its passwords are in
+  `android/keystore.properties`. Both are git-ignored. **Back them up**: every future
+  update must be signed with the same key, or phones refuse to install it.
+- The script sets `versionName` and bumps `versionCode` in `android/app/build.gradle.kts` for you.
+- It builds the `prod` flavour (`app.boomdoom`) by default. The backend address is baked in from
+  `boomdoom.apiBaseUrl` in `android/local.properties`, and the script refuses to build while it
+  points at the emulator (`10.0.2.2`) or `localhost`.
+- It uses JBR 21 (`~/Library/Java/JavaVirtualMachines/jbr-21.0.11`), because Gradle 8.11 can't run
+  on Android Studio's bundled JDK 25. Set `JAVA_HOME_OVERRIDE` to use another JDK 17-21.
+- It checks the APK is 16 KB page-aligned, which Android 15+ requires for the ONNX Runtime libraries.
+- Installing on a phone: open the APK, allow "Install unknown apps" for the browser/Files app,
+  and choose "Install anyway" if Play Protect warns (normal for apps outside the Play Store).
+- A phone that has the *debug* build (from Android Studio) must uninstall it first:
+  the two builds are signed with different keys.
 
 ## Where things deviate from the Tech Spec
 
