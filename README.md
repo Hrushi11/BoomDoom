@@ -26,6 +26,12 @@
 
 **Core rule:** feed data never leaves the phone. The backend only sees learning preferences and lesson events. This is enforced in code: `./gradlew checkFeedIsolation` on Android, and request schemas that reject unknown fields on the backend.
 
+## Demo
+
+https://github.com/user-attachments/assets/22aee885-2cf5-4aca-9b73-373150c6a956
+
+3.5 minutes: Home, scrolling goals, a stickman lesson playing, Insights and Learn. Full-quality file: [`AppDemo.mp4`](AppDemo.mp4).
+
 ## Designs
 
 ### Onboarding
