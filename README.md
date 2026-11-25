@@ -222,3 +222,17 @@ inference on a phone. Live capture and model integration in the monitoring app a
 still recorded as "other". Reels-screen detection
 uses a layout heuristic plus unverified view ids (`monitor/src/main/assets/reels_selectors.json`); spike S1 on a real
 phone is needed to confirm them.
+
+## License
+
+BoomDoom is released under the [MIT License](LICENSE).
+
+Third-party parts keep their own licences:
+
+| Part | Licence |
+|---|---|
+| [`vendor/stickman-skill`](vendor/stickman-skill) (stickman film engine), by michxlai | MIT ([`LICENSE`](vendor/stickman-skill/LICENSE)) |
+| [`vendor/stickman-studio`](vendor/stickman-studio) (voice, captions, compose), by Atharv Hatwar | MIT ([`LICENSE`](vendor/stickman-studio/LICENSE)) |
+| Sound effects in `vendor/stickman-skill/sfx/`, by [Kenney](https://www.kenney.nl) | CC0 |
+| Plus Jakarta Sans font (`android/core/designsystem`) | SIL Open Font License 1.1 |
+| Kokoro voice model (downloaded at build time, not in this repo) | Apache 2.0 |

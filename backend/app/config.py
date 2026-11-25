@@ -65,6 +65,9 @@ class Settings(BaseSettings):
 
     # ---- OpenAI ----
     openai_api_key: str = ""  # secret
+    # LLM for syllabi and scripts: "openai", "mock" (templated content, no key, no cost) or "auto" (openai when a
+    # key is set, else mock)
+    llm_mode: str = "auto"
     openai_model_syllabus: str = "gpt-6.2-sol"
     openai_model_script: str = "gpt-6.2-sol"  # top tier: scene-based scripts drive the animation quality
     openai_model_qa: str = "gpt-6-luna"
@@ -135,6 +138,10 @@ class Settings(BaseSettings):
             )
             return url.render_as_string(hide_password=False)
         return self.database_url
+
+    @property
+    def use_mock_llm(self) -> bool:
+        return self.llm_mode == "mock" or (self.llm_mode == "auto" and not self.openai_api_key)
 
     def validate_for_cloud(self) -> list[str]:
         """Settings that must be present outside local/test. Checked at startup (fail fast)."""

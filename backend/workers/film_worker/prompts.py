@@ -6,6 +6,8 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+IMAGE_STAGES = ("meeting_room", "server_room", "living_room", "museum_hall")  # painted backgrounds (engine/assets.js)
+CODE_SETS = ("cafe", "street", "room", "symbolic")  # sets drawn in code (engine/sets/)
 VOICE_AT = 0.5  # audio_mix lays vo.wav in at this picture time (m.voice(VOICE, at=.5))
 FPS = 30
 FRAME_W, FRAME_H = 1080, 1920  # portrait canvas for the 9:16 lesson player (engine patched to read the canvas size)
@@ -20,7 +22,7 @@ SCRIPT_SCHEMA = {
         "properties": {
             "title": {"type": "string"},
             "logline": {"type": "string"},
-            "set": {"type": "string", "enum": ["cafe", "street", "room", "symbolic"]},
+            "set": {"type": "string", "enum": [*IMAGE_STAGES, *CODE_SETS]},
             "sentences": {"type": "array", "items": {"type": "string"}},
         },
     },
@@ -72,12 +74,22 @@ FIX_SCHEMA = {
 
 
 FILM_S = 30
-FILM_STORY_GUIDE = """Choose one set the engine can draw: a café (tables, cups, door, rain), a street (bus stop,
+FILM_STORY_GUIDE = """Choose the one set that fits the topic. Prefer the painted stages:
+- meeting_room (whiteboard on the wall): system design, tech, interviews, careers, planning, also finance talks.
+- server_room (racks, wall screen): system design, databases, networks, scaling, cloud.
+- living_room (sofa, lamp, bookshelf): personal finance, psychology, habits, family and everyday life.
+- museum_hall (exhibit panels, column, vase): history, general knowledge, culture, science history.
+The older code-drawn sets remain for stories that need them: a café (tables, cups, door, rain), a street (bus stop,
 buildings, bus), a room (table, lift, hallway), or a symbolic void (slabs and silhouettes).
-Use two characters who interact: a hero, a friend, a woman, a stranger or two guests. Use one physical metaphor.
+Use two characters who interact. Prefer the new cast: an engineer, an interviewer, an analyst, a professor, a student,
+a young woman in a kurta, a grandmother in a saree, a museum curator (the older hero, friend, woman, stranger and guests
+also exist). Use one physical metaphor built from picture props that fit the topic: laptop, server, database, queue,
+load balancer, router, cloud for tech; coins, notes, piggy bank, wallet, card, chart board, calculator, receipt for
+money; brain, thought bubble, lightbulb, notebook, hourglass for the mind; scroll, old book, globe, map, compass,
+column, pot, crown for history.
 Speak directly to the viewer. Open with a relatable moment and explain the idea in conversational language.
 Put the visible action in the scene, not in a spoken description of the animation.
-Avoid maps, screens full of text and explanations that depend on reading labels.
+Avoid screens full of text and explanations that depend on reading labels; a board may show two or three big words.
 Give the last third a new visual beat (a payoff or reveal) and end with a takeaway the viewer can use."""
 
 
@@ -108,6 +120,9 @@ def _docs(skill: str) -> str:
     text += "\n\n# ENGINE SOURCE (the only functions that exist)\n"
     text += "\n\n".join(f"// ===== {name} =====\n{path.read_text()}" for name, path in src)
     text += "\n\n# STARTER FILM (working example of every pattern)\n" + (root / "templates" / "film_2d.js").read_text()
+    demo = root / "templates" / "film_assets_demo.js"
+    if demo.exists():
+        text += "\n\n# PAINTED-STAGE EXAMPLE (portrait; stages, picture props, new cast)\n" + demo.read_text()
     text += (
         "\n\n# AUDIO MIX TEMPLATE (you write only the block between the EDIT markers)\n"
         + (root / "templates" / "audio_mix.py").read_text()
@@ -133,12 +148,27 @@ def timeline(sentences: list[dict]) -> str:
     )
 
 
+STAGE_NOTES = """
+Painted stage rules (see the assets.js section of the engine toolkit): draw the background with stage(x,st) and
+stageLife(x,st,t) on the back layer; pass every camera through stageCam(st,cam) (portrait wide shot about
+{x:768,y:1250,z:.85}, close shots z 1.2-1.6); place people with stand(st,x,y) or makeWalk(...,scale:stageWalk(st)) on
+the stage's floor range and spots; standing props with floorProp (draw the ones behind people first, nearer ones after),
+held props with propInHand after actor(); words, diagrams and charts go on the board with boardText, boardDiagram,
+barChart (people standing in front of the board hide it, so use spots.left/right beside it). Prefer the new cast
+(ENGINEER, INTERVIEWER, ANALYST, PROFESSOR, STUDENT, KURTA, SAREE, CURATOR) and props that fit the topic."""
+
+
 def film_prompt(script: dict, sentences: list[dict], dur: int, topic: str = "", concept: str = "") -> str:
     where = (
         f"Set: {script['set']}"
         if script.get("set")
-        else "Set: choose the one that fits the story best: cafe, street, room or symbolic (for abstract beats)."
+        else "Set: choose the one that fits the topic best. Prefer the painted stages (engine/assets.js): meeting_room "
+        "or server_room for system design and tech, living_room or meeting_room for finance, living_room for "
+        "psychology and habits, museum_hall for history and general knowledge. cafe, street, room and symbolic (for "
+        "abstract beats) are also available."
     )
+    if script.get("set") in IMAGE_STAGES or not script.get("set"):
+        where += STAGE_NOTES
     return f"""Make a VERTICAL film for this narration on a canvas of {FRAME_W}x{FRAME_H} (9:16 portrait).
 Topic: {topic}. Concept: {concept}. The film teaches this concept: turn it into visible action and one physical metaphor
 (labelled props are fine, e.g. cups marked DATA on a table marked CACHE), even where the narration speaks to the viewer.
@@ -153,8 +183,9 @@ Requirements:
   Cut on or near sentence boundaries so each sentence has its own picture; include a wide shot of the whole world.
 - Plan first: beats (action, feeling, camera, sound), ONE world with fixed positions for every character and prop, and a
   shot list. Every shot is only a camera on that world. Keep characters at the same positions and distances across cuts.
-- Vertical framing: the camera shows a world area {FRAME_W}/z wide and {FRAME_H}/z tall around (cam.x, cam.y), so the
-  sets (built for landscape) need z >= 1.6 to fill the frame. Frame for portrait: one or two characters filling the
+- Vertical framing: the camera shows a world area {FRAME_W}/z wide and {FRAME_H}/z tall around (cam.x, cam.y). The
+  painted stages are portrait already (keep the camera inside them with stageCam); the code-drawn sets (built for
+  landscape) need z >= 1.6 to fill the frame. Frame for portrait: one or two characters filling the
   middle of the frame, close and medium shots, a full-body shot for walks. Keep faces and the key prop in the middle
   60% of the height; the bottom 20% gets captions, so nothing important there.
 - The last third of the film needs a new visual beat (a payoff or reveal), not a repeat of an earlier shot.

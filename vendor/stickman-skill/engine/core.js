@@ -49,4 +49,6 @@ window.renderAt=function(t){const dur=FILM.dur;t=clamp(t,0,dur-1/60);const f=Mat
  REPORT={t,f,sh:s,people:{},contacts:[],sym:0};const cam=FILM.cam(s,u,t);FILM.draw(t,cam,s,u);
  finish(ctx,t,FILM.warm?FILM.warm(t):0);const fi=FILM.fadeIn??.5,fo=FILM.fadeOut??.6;fadeTo(ctx,Math.max(fi>0?1-seg(t,0,fi):0,fo>0?seg(t,dur-fo,dur-.03):0));
  return REPORT};
-window.bootFilm=()=>{window.CUTF=FILM.cuts;window.DUR=FILM.dur;window.EVENTS=EVENTS;window.PLANTS=FILM.plants?FILM.plants():{};window.READY=true};
+// BoomDoom: when assets.js is loading images, READY waits until every image is decoded (renderers wait for READY).
+window.bootFilm=()=>{const go=()=>{window.CUTF=FILM.cuts;window.DUR=FILM.dur;window.EVENTS=EVENTS;window.PLANTS=FILM.plants?FILM.plants():{};window.READY=true};
+ const w=window.ASSETS_READY;if(w&&w.then)w.then(go,go);else go()};

@@ -17,8 +17,15 @@ def build(kind: str) -> Worker:
         from app.services.deletion import process_deletion_job
         from workers.script_worker import pipeline
         from workers.script_worker.llm import OpenAILLM
+        from workers.script_worker.mock_llm import MockLLM
 
-        llm = OpenAILLM()
+        if get_settings().use_mock_llm:
+            import logging
+
+            logging.getLogger("worker").warning("LLM_MODE=mock: syllabi and scripts are templated (no OpenAI calls)")
+            llm = MockLLM()
+        else:
+            llm = OpenAILLM()
 
         def deletion(job_id):
             with session_scope() as db:

@@ -24,7 +24,23 @@ say(3.2,'door');                           // sound event on the picture's clock
 - `report(id,p)` and `contact(name,a,b)` feed the audit. `REPORT.sym=1` marks a symbolic frame.
 
 ## Characters (`chars.js`)
-`HERO, FRIEND, WOMAN, STRANGER, GUEST_A, GUEST_B`. Add new ones by copying a colour object. Optional keys: `hair`, `coat`.
+`HERO, FRIEND, WOMAN, STRANGER, GUEST_A, GUEST_B`, and the newer cast (prefer these):
+
+| Name | Look | Fits |
+|---|---|---|
+| `ENGINEER` | teal hoodie, curly hair, lanyard and badge | tech, system design |
+| `INTERVIEWER` | plum blazer over a cream shirt, short hair | interviews, careers, business |
+| `ANALYST` | light blue shirt, coral tie, round glasses | finance, data, office |
+| `PROFESSOR` | mustard cardigan, grey hair and beard, glasses | any explainer, science, history |
+| `STUDENT` | denim jacket over an amber tee, ponytail, backpack | learner, the viewer's stand-in |
+| `KURTA` | teal kurta with coral trim, long braid, earrings | everyday life, family, money |
+| `SAREE` | coral saree with an amber sash, grey bun, glasses | grandmother, wisdom, savings |
+| `CURATOR` | plum vest, cream shirt, teal scarf, locs | history, museum; give her `pointerStick` |
+
+Add new ones by copying a colour object. Optional keys: `hair`, `coat`, and (drawn on the rig, so they follow every
+pose and walk) `hairStyle` ('short','curly','side','ponytail','braid','bun','locs'), `beard`, `specs` (round glasses),
+`earrings`, `tie`, `lanyard`+`badge`, `strings`, `scarf`, `backpack`, `outfit` ('shirt','blazer','cardigan','vest',
+'jacket' open over `shirt`; 'kurta' with `trim`; 'saree' with `sash`), `sleeve`, `sleeveEdge`, `shortSleeve`, `cuff`.
 
 `actor(x,id,CHAR,pose,cam,rimColour,rimSide)` draws with rim light and reports to the audit. It returns the pose, with `p._h` holding hands. `h2w(p,'r')` gives a hand's world position and `w2l(p,[x,y])` converts back.
 
@@ -47,6 +63,43 @@ function who(t){const q=w.at(t),p={x:q.c[0],y:standY(q.c[1],q.s),s:q.s,face:1,br
 - `symbolic.js`: `drawVoid`, `slab`, `drawSils`, `makeChunks`, `drawChunks`, and silhouettes. See `symbolic-beats.md`.
 
 New sets follow the same rule: flat shapes, the palette, one world. Add sets, and do not restyle the existing ones.
+
+## Painted stages and picture props (`assets.js`) — prefer these
+Four painted portrait rooms and 42 prop pictures, drawn as images; people are still the rig. The world of every stage
+is the picture at 0,0 to 1536,2304. `templates/film_assets_demo.js` is a working example of all of it.
+
+| Stage | Picture | Board | Use for |
+|---|---|---|---|
+| `meeting_room` | whiteboard wall, cabinet, window, chairs and table at right | whiteboard | system design, tech, interviews, finance |
+| `server_room` | rack corridor, ceiling lamp, wall screen | dark screen (glowing text) | databases, networks, scaling, cloud |
+| `living_room` | bookshelf, window, lamp, sofa at right, rug | none (a cream card is drawn) | money at home, psychology, habits |
+| `museum_hall` | two exhibit panels, arch, vase case, bust | left panel (`panelL`, also `panelR`) | history, general knowledge |
+
+- `stage(x,st)` then `stageLife(x,st,t)` on the back layer (blinking rack LEDs, lamp glow, dust in spotlights, city windows).
+- `stageCam(st,{x,y,z,...})` clamps a camera so the frame never leaves the picture. Portrait wide: `{x:768,y:1250,z:.85}`;
+  medium two-shot z about 1.1; close-up 1.4–1.8 centred on a face.
+- People: `Object.assign({face:1,breath:t*2,...},stand(st,fx,fy))` gives `x,y,s` for feet at (fx,fy). Scale follows depth
+  (eyes always on the horizon): s is about 1 at the back wall and 1.6 at the front. Keep feet inside `STAGES[st].floor`
+  (y range) and `.x` (x range); `STAGES[st].spots` has good points (`left`,`centre`,`right`,`front`). Walk with
+  `makeWalk({pts,t0,t1,steps,scale:stageWalk(st)})`. Draw people further back first. Add `softShadow` under feet.
+- The rooms are to scale, so people in front of the board hide it: put them at `spots.left`/`spots.right` when the
+  board matters, or give the board its own shot.
+- Board overlays: `boardText(x,st,['BIG','WORDS'],t,{t0,cps})` writes on the board; `boardDiagram(x,st,[[label,u,v],...],
+  [[i,j],...],t,{t0,step,flow:true})` draws boxes and arrows (u,v 0..1 across the board) with packets flowing;
+  `barChart(x,st,[.3,.6,.9],t,{t0,labels})`. `o.region` picks another region or a rect `{x,y,w,h}`.
+- Props (`PROPS` lists each with its natural height `h` at s=1, `kind` and `grip`): laptop, phone, server, database,
+  cloud, loadbalancer, queue, router, coins, notes, piggybank, wallet, card, chart_board, calculator, receipt, brain,
+  thought_bubble, notebook, lightbulb, hourglass, mug, sofa, bed, scroll, old_book, globe, map, compass, column, pot,
+  crown, magnifier, flag, whiteboard, clipboard, speech_bubble, arrow, calendar, envelope, desk, trophy.
+  - `floorProp(x,st,name,fx,fy,{scale})` stands one on the floor with perspective and a shadow. Draw it before people
+    who stand behind it in depth order (smaller fy first).
+  - `propInHand(x,p,'r'|'l',name,h,{rot,flip})` after `actor()`: the prop's grip goes to the hand, a gripping hand is drawn
+    over it and `contact()` is recorded. Animate `p.hands` and the prop follows (tuck the arm to hold it close).
+  - `prop(x,name,px,py,h,{rot,flip,alpha,s})` draws anywhere (icons such as brain, cloud, database, thought_bubble are
+    centred on the point); returns its box `{x,y,w,h,cx,cy,top}`.
+  - `pointerStick(x,p,k,angle,len)` gives a pointer to point at the board; returns the tip.
+  - `packet(x,a,b,t,{n,period,arc,t0,t1})` sends glowing data packets from point a to b (e.g. server to laptop).
+  - `label(x,'CACHE',cx,cy,{size})` puts a small tag on a prop.
 
 ## Patterns worth copying from the starter film
 - The door entrance: draw the walker's own layer behind the wall until `inside`, then over it.

@@ -104,12 +104,23 @@ def main() -> int:
         help="Stickman Studio fork checkout (default: next to the BoomDoom folder)",
     )
     ap.add_argument("--placeholder", action="store_true", help="Use the ffmpeg placeholder renderer instead")
+    ap.add_argument(
+        "--mock",
+        action="store_true",
+        help="No OpenAI key needed: templated syllabi/scripts (LLM_MODE=mock) + placeholder renderer",
+    )
     args = ap.parse_args()
     public = (args.public_url or f"http://localhost:{args.port}").rstrip("/")
 
-    if not (ROOT / ".env").exists():
-        say("runner", "backend/.env not found: copy .env.example and set OPENAI_API_KEY")
+    if not (ROOT / ".env").exists() and not args.mock:
+        say("runner", "backend/.env not found: copy .env.example (set OPENAI_API_KEY), or run with --mock")
         return 1
+    from app.config import get_settings
+
+    mock = args.mock or get_settings().use_mock_llm
+    if mock:
+        args.placeholder = True  # the film/stickman renderers need OpenAI or extra installs
+        say("runner", "mock mode: templated lessons, no OpenAI calls (LLM_MODE=mock)")
     stickman_ok = (Path(args.stickman_dir) / "boomdoom_entry.py").exists() and (
         Path(args.stickman_dir) / ".venv" / "bin" / "python"
     ).exists()
@@ -136,6 +147,8 @@ def main() -> int:
         "STICKMAN_STUDIO_DIR": stickman_dir,
         "FFMPEG_BIN": ffmpeg_path(),
         "CDN_BASE_URL": f"{public}/static",
+        **({"LLM_MODE": "mock"} if mock else {}),
+        "ADMIN_PASSWORD": os.environ.get("ADMIN_PASSWORD") or get_settings().admin_password or "boomdoom-admin",
     }
 
     say("migrate", "alembic upgrade head")
@@ -157,7 +170,8 @@ def main() -> int:
         )
         threading.Thread(target=pump, args=(name, procs[name]), daemon=True).start()
 
-    say("runner", f"API: http://localhost:{args.port}/docs   lessons: {public}/static   (Ctrl-C to stop)")
+    say("runner", f"API docs: http://localhost:{args.port}/docs   lessons: {public}/static   (Ctrl-C to stop)")
+    say("runner", f"tracker:  http://localhost:{args.port}/trackVideoGen   password: {env['ADMIN_PASSWORD']}")
 
     stopping = False
 

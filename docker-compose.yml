@@ -1,0 +1,73 @@
+# BoomDoom backend, full stack in Docker (see AGENTS.md, "Option B").
+#
+#   docker compose up --build                      # mock mode: no keys needed, placeholder videos
+#   OPENAI_API_KEY=sk-... RENDERER=film docker compose up --build   # real GPT lessons + real stickman films
+#
+# Same image as production (deploy/poc/Dockerfile): ffmpeg, Playwright Chromium, the Kokoro voice, the film engine.
+# API + Swagger: http://localhost:8000/docs   Tracker: http://localhost:8000/trackVideoGen (password: boomdoom-admin)
+x-app: &app
+  build:
+    context: .
+    dockerfile: deploy/poc/Dockerfile
+  image: boomdoom-backend:local
+  environment: &env
+    BOOMDOOM_ENV: local
+    DATABASE_URL: postgresql+psycopg://boomdoom:boomdoom@db:5432/boomdoom
+    QUEUE_BACKEND: db
+    STORAGE_BACKEND: local
+    # Lesson files live on a shared volume (api serves them at /static, the render worker writes them).
+    LOCAL_STORAGE_DIR: /tmp/boomdoom-render/storage
+    RENDER_TMP_DIR: /tmp/boomdoom-render/work
+    CDN_BASE_URL: ${PUBLIC_URL:-http://localhost:8000}/static
+    LLM_MODE: ${LLM_MODE:-auto}
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    OPENAI_DAILY_COST_CAP_USD: ${OPENAI_DAILY_COST_CAP_USD:-5}
+    RENDERER: ${RENDERER:-placeholder}
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-boomdoom-admin}
+    # Local JWT keys: the API makes ephemeral keys on start (tokens reset when the api container restarts).
+  volumes:
+    - lessons:/tmp/boomdoom-render
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: boomdoom
+      POSTGRES_PASSWORD: boomdoom
+      POSTGRES_DB: boomdoom
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boomdoom"]
+      interval: 3s
+      retries: 30
+
+  migrate:
+    <<: *app
+    command: alembic upgrade head
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    <<: *app
+    ports: ["8000:8000"]
+
+  script-worker:
+    <<: *app
+    command: python -m workers script
+
+  render-worker:
+    <<: *app
+    command: python -m workers render
+
+  scheduler:
+    <<: *app
+    command: python -m app.cron loop
+
+volumes:
+  pgdata:
+  lessons:
